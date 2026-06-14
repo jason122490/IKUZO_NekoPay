@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from datetime import timedelta
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -16,10 +17,12 @@ from sqlalchemy import select
 from app.api import actions, admin, analytics, attribution, auth, members
 from app.config import get_settings
 from app.db import Base, SessionLocal, engine
+from app.models.auth import UserSession
 from app.models.user import Member
 from app.services.auth_service import hash_password
 from app.services.errors import DomainError
 from app.sync.scheduler import SyncManager
+from app.util.time import utcnow
 from app.web import router as web_router
 
 logging.basicConfig(level=logging.INFO)
@@ -98,6 +101,42 @@ def create_app() -> FastAPI:
                 "max-age=31536000; includeSubDomains"
             )
         return resp
+
+    @app.middleware("http")
+    async def _slide_session(request: Request, call_next):
+        """Sliding session: on activity, extend a valid session + re-set the
+        cookie so an active user effectively logs in only once. Throttled to at
+        most once/day per session; never breaks the response if it fails."""
+        response = await call_next(request)
+        path = request.url.path
+        if path == "/healthz" or path.startswith("/static"):
+            return response
+        token = request.cookies.get(settings.session_cookie_name)
+        if not token:
+            return response
+        try:
+            async with SessionLocal() as s:
+                us = await s.get(UserSession, token)
+                now = utcnow()
+                if (
+                    us is not None
+                    and us.expires_at > now
+                    and (now - us.last_seen_at).total_seconds() > 86400
+                ):
+                    us.last_seen_at = now
+                    us.expires_at = now + timedelta(hours=settings.session_ttl_hours)
+                    await s.commit()
+                    response.set_cookie(
+                        key=settings.session_cookie_name,
+                        value=token,
+                        max_age=settings.session_ttl_hours * 3600,
+                        httponly=True,
+                        secure=settings.cookies_secure,
+                        samesite="lax",
+                    )
+        except Exception:  # never fail a response over session renewal
+            log.warning("session slide failed", exc_info=True)
+        return response
 
     @app.get("/healthz", tags=["health"])
     async def healthz():

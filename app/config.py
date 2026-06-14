@@ -50,7 +50,7 @@ class Settings(BaseSettings):
 
     # Sessions / cookies
     session_cookie_name: str = "nekopay_session"
-    session_ttl_hours: int = 168  # 7 days
+    session_ttl_hours: int = 720  # 30 days; persistent cookie + sliding renewal
     cookie_secure: bool | None = None  # None -> auto (secure in prod)
 
     @property

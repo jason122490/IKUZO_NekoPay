@@ -149,6 +149,32 @@ async def test_member_cannot_read_other_ledger_idor(ctx):
     await bob_c.aclose()
 
 
+async def test_login_sets_persistent_httponly_cookie(ctx):
+    c = httpx.AsyncClient(transport=ctx, base_url="http://t")
+    r = await c.post("/api/auth/login",
+                     json={"email": "admin@nekopay.app", "password": "secret1"})
+    assert r.status_code == 200
+    set_cookie = "; ".join(r.headers.get_list("set-cookie")).lower()
+    assert "max-age=" in set_cookie  # persistent (survives browser restart)
+    assert "httponly" in set_cookie  # not readable by JS
+    await c.aclose()
+
+
+async def test_cookie_auto_login_without_credentials(ctx):
+    # log in once, capture the cookie
+    c1 = httpx.AsyncClient(transport=ctx, base_url="http://t")
+    r = await c1.post("/api/auth/login",
+                      json={"email": "admin@nekopay.app", "password": "secret1"})
+    token = r.cookies.get("nekopay_session")
+    assert token
+    await c1.aclose()
+    # a fresh client carrying ONLY the cookie is auto-authenticated (no creds)
+    c2 = httpx.AsyncClient(transport=ctx, base_url="http://t",
+                           cookies={"nekopay_session": token})
+    assert (await c2.get("/api/auth/me")).status_code == 200
+    await c2.aclose()
+
+
 async def test_member_cannot_create_member(ctx):
     bob_c, csrf = await _login(ctx, "bob@nekopay.app", "secret1")
     r = await bob_c.post(

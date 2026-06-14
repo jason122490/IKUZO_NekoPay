@@ -193,8 +193,24 @@ async function resetPwd(id) {
   }
 }
 async function deleteMember(id) {
-  if (!confirm("確定「永久刪除」此帳號？無法復原。\n（若該帳號已有交易紀錄，系統會擋下並建議改用停用）")) return;
-  if (await NK.del(`/api/members/${id}`)) { alert("已刪除"); NK.reload(); }
+  if (!confirm("確定刪除此帳號？")) return;
+  let r = await fetch(`/api/members/${id}`, {
+    method: "DELETE", headers: { "X-CSRF-Token": window.CSRF },
+  });
+  if (r.ok) { alert("已刪除"); NK.reload(); return; }
+  let data = null; try { data = await r.json(); } catch (e) {}
+  if (r.status === 409) {
+    const msg = (data && data.detail) || "此帳號有關聯紀錄";
+    if (!confirm(msg + "\n\n要『強制刪除』——連同所有紀錄一起刪除嗎？此動作無法復原！")) return;
+    r = await fetch(`/api/members/${id}?force=true`, {
+      method: "DELETE", headers: { "X-CSRF-Token": window.CSRF },
+    });
+    if (r.ok) { alert("已強制刪除"); NK.reload(); return; }
+    try { data = await r.json(); } catch (e) {}
+    alert((data && data.detail) || ("錯誤 " + r.status));
+    return;
+  }
+  alert((data && data.detail) || ("錯誤 " + r.status));
 }
 
 // ---- edit / delete a ledger record ----

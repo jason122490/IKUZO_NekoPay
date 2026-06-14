@@ -102,11 +102,12 @@ async def reset_member_password(
 )
 async def delete_member(
     member_id: int,
+    force: bool = False,
     admin: Member = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ) -> MessageOut:
     await member_admin.delete_member(
-        session, actor_id=admin.id, member_id=member_id
+        session, actor_id=admin.id, member_id=member_id, force=force
     )
     return MessageOut(detail="deleted")
 

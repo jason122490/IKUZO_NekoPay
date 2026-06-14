@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit import AuditLog
 from app.models.auth import UserSession
-from app.models.enums import Role
+from app.models.enums import AttributionStatus, Role
 from app.models.ledger import AttributionClaim, LedgerEntry
 from app.models.real import RealTransaction
 from app.models.user import Member
@@ -171,26 +171,86 @@ async def count_references(session: AsyncSession, member_id: int) -> int:
     return total
 
 
-async def delete_member(
-    session: AsyncSession, *, actor_id: int, member_id: int
-) -> None:
-    """Permanently delete a member, ONLY if they have no financial history.
+async def _force_purge(session: AsyncSession, member_id: int, actor_id: int) -> None:
+    """Remove all records tied to a member so the member row can be deleted.
 
-    Members with any ledger/attribution/claim references must be disabled
-    instead (preserves the append-only ledger + reconciliation invariant).
+    Side effects (intentional, for integrity):
+      * transfers the member was part of are removed in full (both sides), which
+        reverses those transfers for the counterparties;
+      * real transactions attributed to the member return to 'unattributed';
+      * records the member created for OTHERS keep, with authorship reassigned to
+        the admin performing the deletion.
+    """
+    # 1) delete full transfer groups the member participated in (both sides)
+    group_ids = [
+        g for (g,) in (await session.execute(
+            select(LedgerEntry.transfer_group_id)
+            .where(
+                LedgerEntry.member_id == member_id,
+                LedgerEntry.transfer_group_id.is_not(None),
+            )
+            .distinct()
+        )).all()
+    ]
+    if group_ids:
+        await session.execute(
+            delete(LedgerEntry).where(LedgerEntry.transfer_group_id.in_(group_ids))
+        )
+    # 2) free real transactions attributed to this member
+    await session.execute(
+        update(RealTransaction)
+        .where(RealTransaction.attributed_member_id == member_id)
+        .values(
+            attribution_status=AttributionStatus.UNATTRIBUTED.value,
+            attributed_member_id=None, attributed_by=None,
+            attributed_at=None, ledger_entry_id=None,
+        )
+    )
+    # 3) delete the member's remaining ledger entries (topup/play/adjustment)
+    await session.execute(
+        delete(LedgerEntry).where(LedgerEntry.member_id == member_id)
+    )
+    # 4) reassign authorship of entries the member created for OTHERS
+    await session.execute(
+        update(LedgerEntry).where(LedgerEntry.created_by == member_id)
+        .values(created_by=actor_id)
+    )
+    # 5) clear 'attributed_by' the member set on others' real txns
+    await session.execute(
+        update(RealTransaction).where(RealTransaction.attributed_by == member_id)
+        .values(attributed_by=None)
+    )
+    # 6) claims: delete the member's own, null them as a resolver elsewhere
+    await session.execute(
+        delete(AttributionClaim).where(AttributionClaim.member_id == member_id)
+    )
+    await session.execute(
+        update(AttributionClaim).where(AttributionClaim.resolved_by == member_id)
+        .values(resolved_by=None)
+    )
+
+
+async def delete_member(
+    session: AsyncSession, *, actor_id: int, member_id: int, force: bool = False
+) -> None:
+    """Delete a member.
+
+    Without ``force``: refuses if the member has any financial/decision records
+    (disable instead). With ``force``: purges those records too (see _force_purge).
     """
     if member_id == actor_id:
         raise ValidationError("cannot delete your own account")
     member = await _require(session, member_id)
 
     refs = await count_references(session, member_id)
-    if refs:
+    if refs and not force:
         raise ConflictError(
-            f"member has {refs} linked record(s); disable instead of deleting "
-            "(deleting would break the ledger/audit history)"
+            f"此帳號有 {refs} 筆關聯紀錄；請改用停用，或選擇強制刪除（連同紀錄）"
         )
+    if force and refs:
+        await _force_purge(session, member_id, actor_id)
 
-    # safe to remove: drop sessions, keep audit history but null the FK
+    # common cleanup: drop sessions, keep audit history but null the actor FK
     await session.execute(
         delete(UserSession).where(UserSession.member_id == member_id)
     )
@@ -198,9 +258,12 @@ async def delete_member(
         update(AuditLog).where(AuditLog.actor_id == member_id).values(actor_id=None)
     )
     await audit_service.record(
-        session, actor_id=actor_id, action="member.delete",
+        session,
+        actor_id=actor_id,
+        action=("member.force_delete" if force and refs else "member.delete"),
         target_type="member", target_id=member_id,
-        detail={"email": member.email, "display_name": member.display_name},
+        detail={"email": member.email, "display_name": member.display_name,
+                "purged_refs": refs},
     )
     await session.delete(member)
     await session.commit()

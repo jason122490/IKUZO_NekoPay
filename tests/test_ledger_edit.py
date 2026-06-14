@@ -6,6 +6,7 @@ from datetime import timedelta
 import httpx
 import pytest_asyncio
 from httpx import ASGITransport
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -175,6 +176,51 @@ async def test_delete_attributed_entry_frees_real_txn(ctx):
         assert rt.attribution_status == "unattributed"
         assert rt.attributed_member_id is None and rt.ledger_entry_id is None
     await c.aclose()
+
+
+async def test_force_delete_member_purges_records(ctx):
+    transport, maker = ctx
+    admin, ah = await _login(transport, "admin@nekopay.app")
+    bob = await _id(admin, "bob@nekopay.app")
+    await admin.post("/api/topups", headers=ah, json={"member_id": bob, "points": 50})
+    # normal delete blocked (has a record)
+    assert (await admin.request("DELETE", f"/api/members/{bob}",
+                                headers=ah)).status_code == 409
+    # force delete succeeds and removes the records
+    assert (await admin.request("DELETE", f"/api/members/{bob}?force=true",
+                                headers=ah)).status_code == 200
+    async with maker() as s:
+        cnt = (await s.execute(
+            select(func.count()).select_from(LedgerEntry)
+            .where(LedgerEntry.member_id == bob))).scalar_one()
+        assert cnt == 0
+    assert bob not in [m["id"] for m in (await admin.get("/api/members")).json()]
+    await admin.aclose()
+
+
+async def test_force_delete_frees_attributed_real_txn(ctx):
+    transport, maker = ctx
+    admin, ah = await _login(transport, "admin@nekopay.app")
+    bob = await _id(admin, "bob@nekopay.app")
+    async with maker() as s:
+        s.add(RealTransaction(
+            kind="pay", shop="竹喵店", machine="Chunithm", raw_name="竹喵店 - Chunithm",
+            value=-3, pay_type="point", occurred_at=utcnow(),
+            occurred_date_raw="06/10", occurred_time_raw="20:47",
+            base_hash="fd1", dedup_key="fd1", occurrence_index=0))
+        await s.commit()
+        rid = (await s.execute(
+            select(RealTransaction.id).where(RealTransaction.dedup_key == "fd1"))
+        ).scalar_one()
+    # admin attributes it to bob, then force-deletes bob
+    assert (await admin.post(f"/api/admin/real-transactions/{rid}/attribute",
+            headers=ah, json={"member_id": bob})).status_code == 200
+    assert (await admin.request("DELETE", f"/api/members/{bob}?force=true",
+            headers=ah)).status_code == 200
+    async with maker() as s:
+        rt = await s.get(RealTransaction, rid)
+        assert rt.attribution_status == "unattributed" and rt.attributed_member_id is None
+    await admin.aclose()
 
 
 async def test_edit_attributed_amount_blocked_note_ok(ctx):

@@ -5,9 +5,10 @@ body { margin:0; font-family: system-ui, "Noto Sans TC", sans-serif; background:
 a { color:var(--accent); text-decoration:none; }
 .nav { display:flex; justify-content:space-between; align-items:center; padding:14px 22px;
   background:#141a2b; border-bottom:1px solid var(--line); }
-.brand { font-weight:700; font-size:18px; }
+.brand { font-weight:700; font-size:18px; color:#9cc2ff; }
 .nav nav { display:flex; gap:16px; align-items:center; }
 .who { color:var(--muted); }
+.seeall { float:right; font-size:13px; font-weight:400; }
 main { max-width:1100px; margin:24px auto; padding:0 16px; }
 .site-footer { max-width:1100px; margin:32px auto 24px; padding:18px 16px 0;
   border-top:1px solid var(--line); text-align:center; color:var(--muted);
@@ -69,8 +70,8 @@ tr.inactive { opacity:.45; }
 
   /* nav wraps: brand on its own line (bigger + centered), links underneath */
   .nav { padding:12px 14px; flex-wrap:wrap; }
-  .nav nav { width:100%; margin-top:6px; gap:16px; flex-wrap:wrap; row-gap:8px; }
-  .brand { width:100%; text-align:center; font-size:24px; }
+  .nav nav { width:100%; margin-top:14px; gap:16px; flex-wrap:wrap; row-gap:8px; }
+  .brand { width:100%; text-align:center; font-size:24px; margin-bottom:4px; }
 
   .card { padding:14px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
   .card.login { margin:6vh auto; }

@@ -89,6 +89,34 @@ async def test_dashboard_uses_personal_rate_for_nt(ctx):
     await c.aclose()
 
 
+async def test_records_page_shows_all_and_filters(ctx):
+    c = httpx.AsyncClient(transport=ctx, base_url="http://t")
+    r = await c.post("/api/auth/login", json={"username": "bob", "password": "secret1"})
+    h = {"X-CSRF-Token": r.json()["csrf_token"]}
+    bob = next(m["id"] for m in (await c.get("/api/members")).json()
+               if m["username"] == "bob")
+    for _ in range(18):
+        await c.post("/api/topups", headers=h, json={"member_id": bob, "money_nt": 100})
+    await c.post("/api/plays", headers=h, json={"member_id": bob, "points": 3})
+
+    def n_rows(text):
+        return text.count('onclick="delEntry(')
+
+    # dashboard stays capped at 15; the full page shows everything (18 + 1)
+    assert n_rows((await c.get("/dashboard")).text) == 15
+    assert n_rows((await c.get("/records")).text) == 19
+    # filter by 類型
+    assert n_rows((await c.get("/records", params={"kind": "play"})).text) == 1
+    assert n_rows((await c.get("/records", params={"kind": "topup"})).text) == 18
+    # filter by 歸戶 (none are attributed)
+    assert n_rows((await c.get("/records", params={"attr": "no"})).text) == 19
+    assert n_rows((await c.get("/records", params={"attr": "yes"})).text) == 0
+    # sort options are accepted
+    for s in ("time", "type", "attributed"):
+        assert (await c.get("/records", params={"sort": s})).status_code == 200
+    await c.aclose()
+
+
 async def test_footer_on_login_page(ctx):
     c = httpx.AsyncClient(transport=ctx, base_url="http://t")
     r = await c.get("/login")

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import records_table %}
+{% block title %}我的紀錄 · IKUZO✝NekoPay{% endblock %}
+{% block content %}
+<div class="grid">
+  <section class="card wide">
+    <h2>我的紀錄 <span class="muted">（共 {{ total }} 筆，可自行修改/刪除/歸戶）</span></h2>
+    <form method="get" action="/records" class="filters">
+      <label>類型
+        <select name="kind" onchange="this.form.submit()">
+          <option value="" {% if not kind %}selected{% endif %}>全部</option>
+          <option value="topup" {% if kind=='topup' %}selected{% endif %}>儲值</option>
+          <option value="play" {% if kind=='play' %}selected{% endif %}>投幣</option>
+          <option value="transfer" {% if kind=='transfer' %}selected{% endif %}>轉點</option>
+          <option value="adjustment" {% if kind=='adjustment' %}selected{% endif %}>調整</option>
+        </select>
+      </label>
+      <label>歸戶
+        <select name="attr" onchange="this.form.submit()">
+          <option value="" {% if not attr %}selected{% endif %}>全部</option>
+          <option value="yes" {% if attr=='yes' %}selected{% endif %}>已歸戶</option>
+          <option value="no" {% if attr=='no' %}selected{% endif %}>未歸戶</option>
+        </select>
+      </label>
+      <label>排序
+        <select name="sort" onchange="this.form.submit()">
+          <option value="time" {% if sort=='time' %}selected{% endif %}>時間</option>
+          <option value="type" {% if sort=='type' %}selected{% endif %}>類型</option>
+          <option value="attributed" {% if sort=='attributed' %}selected{% endif %}>歸戶</option>
+        </select>
+      </label>
+      <a href="/dashboard" class="muted">← 回儀表板</a>
+    </form>
+    {% if rows %}
+    {{ records_table(rows) }}
+    {% else %}
+    <p class="muted">沒有符合條件的紀錄</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

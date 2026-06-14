@@ -32,7 +32,7 @@ from app.services.settlement import compute_positions
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
 # bump to force browsers to re-fetch static CSS/JS after changes
-templates.env.globals["asset_v"] = "16"
+templates.env.globals["asset_v"] = "17"
 # Chinese labels for enum values shown in the UI
 templates.env.globals["ENTRY_LABELS"] = {
     "TOPUP": "儲值", "PLAY": "投幣", "TRANSFER_IN": "轉入",
@@ -57,6 +57,24 @@ def _localdt(dt, fmt: str = "%m/%d %H:%M") -> str:
 
 
 templates.env.filters["localdt"] = _localdt
+
+
+def _entry_rows(entries):
+    """View-model rows for the ledger table (dashboard + full records page)."""
+    return [
+        {
+            "e": e,
+            "can_modify": True,  # members may edit/delete their own records anytime
+            "is_transfer": e.transfer_group_id is not None,
+            # 歸戶: a manual top-up/play not yet linked to a real transaction
+            "can_attribute": (
+                e.transfer_group_id is None
+                and e.source_real_txn_id is None
+                and e.entry_type in (EntryType.TOPUP.value, EntryType.PLAY.value)
+            ),
+        }
+        for e in entries
+    ]
 
 
 async def _current(request: Request, session: AsyncSession):
@@ -173,20 +191,7 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
         )).scalars()
     )
     is_admin = member.role == "admin"
-    recent_rows = [
-        {
-            "e": e,
-            "can_modify": True,  # members may edit/delete their own records anytime
-            "is_transfer": e.transfer_group_id is not None,
-            # 補歸戶: a manual top-up/play not yet linked to a real transaction
-            "can_attribute": (
-                e.transfer_group_id is None
-                and e.source_real_txn_id is None
-                and e.entry_type in (EntryType.TOPUP.value, EntryType.PLAY.value)
-            ),
-        }
-        for e in entries
-    ]
+    recent_rows = _entry_rows(entries)
     recon = await reconcile_report(session) if is_admin else None
 
     return templates.TemplateResponse(
@@ -202,6 +207,48 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
             "my_rate_display": my_rate_display, "has_personal_rate": has_personal_rate,
             "bonus_min_topup": BONUS_MIN_TOPUP,
         },
+    )
+
+
+@router.get("/records", response_class=HTMLResponse)
+async def my_records(
+    request: Request,
+    kind: str = "",
+    attr: str = "",
+    sort: str = "time",
+    session: AsyncSession = Depends(get_session),
+):
+    member, csrf = await _current(request, session)
+    if member is None:
+        return RedirectResponse("/login", status_code=303)
+    stmt = select(LedgerEntry).where(LedgerEntry.member_id == member.id)
+    if kind == "topup":
+        stmt = stmt.where(LedgerEntry.entry_type == EntryType.TOPUP.value)
+    elif kind == "play":
+        stmt = stmt.where(LedgerEntry.entry_type == EntryType.PLAY.value)
+    elif kind == "transfer":
+        stmt = stmt.where(LedgerEntry.entry_type.in_(
+            [EntryType.TRANSFER_IN.value, EntryType.TRANSFER_OUT.value]))
+    elif kind == "adjustment":
+        stmt = stmt.where(LedgerEntry.entry_type == EntryType.ADJUSTMENT.value)
+    if attr == "yes":
+        stmt = stmt.where(LedgerEntry.source_real_txn_id.is_not(None))
+    elif attr == "no":
+        stmt = stmt.where(LedgerEntry.source_real_txn_id.is_(None))
+    newest_first = LedgerEntry.created_at.desc()
+    if sort == "type":
+        stmt = stmt.order_by(LedgerEntry.entry_type, newest_first)
+    elif sort == "attributed":  # 已歸戶 first, then by time
+        stmt = stmt.order_by(LedgerEntry.source_real_txn_id.is_(None), newest_first)
+    else:  # time
+        sort = "time"
+        stmt = stmt.order_by(newest_first)
+    entries = list((await session.execute(stmt)).scalars())
+    return templates.TemplateResponse(
+        request,
+        "records.html",
+        {"member": member, "csrf": csrf, "rows": _entry_rows(entries),
+         "kind": kind, "attr": attr, "sort": sort, "total": len(entries)},
     )
 
 

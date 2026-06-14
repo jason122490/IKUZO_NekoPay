@@ -1,0 +1,165 @@
+"""Pydantic v2 request/response schemas."""
+from __future__ import annotations
+
+from datetime import datetime
+from decimal import Decimal
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+
+# ---------------- auth / members ----------------
+class LoginIn(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class MemberCreateIn(BaseModel):
+    email: EmailStr
+    display_name: str = Field(min_length=1, max_length=100)
+    password: str = Field(min_length=6)
+    role: str = "member"
+
+
+class MemberOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    email: str
+    display_name: str
+    role: str
+    is_active: bool
+
+
+class LoginOut(BaseModel):
+    member: MemberOut
+    csrf_token: str
+
+
+class BalanceOut(BaseModel):
+    member_id: int
+    display_name: str
+    points_balance: int
+    money_contributed: Decimal
+
+
+# ---------------- the four actions ----------------
+class TopUpIn(BaseModel):
+    member_id: int
+    points: int = Field(gt=0)
+    money_nt: Decimal = Field(gt=0)
+    note: str | None = None
+    idempotency_key: str | None = None
+
+
+class PlayIn(BaseModel):
+    member_id: int
+    points: int = Field(gt=0)
+    note: str | None = None
+    idempotency_key: str | None = None
+    allow_negative: bool = False
+
+
+class TransferIn(BaseModel):
+    from_member_id: int
+    to_member_id: int
+    points: int = Field(gt=0)
+    note: str | None = None
+    idempotency_key: str | None = None
+
+
+class AdjustmentIn(BaseModel):
+    member_id: int
+    points_delta: int
+    reason: str = Field(min_length=1)
+
+
+class LedgerEntryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    member_id: int
+    entry_type: str
+    points_delta: int
+    money_nt: Decimal | None
+    note: str | None
+    transfer_group_id: str | None
+    source_real_txn_id: int | None
+    created_at: datetime
+
+
+class TransferOut(BaseModel):
+    transfer_group_id: str
+    out_entry: LedgerEntryOut
+    in_entry: LedgerEntryOut
+
+
+# ---------------- real txns / attribution ----------------
+class RealTxnOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    kind: str
+    shop: str
+    machine: str | None
+    raw_name: str
+    value: int
+    pay_type: str | None
+    occurred_at: datetime
+    attribution_status: str
+    attributed_member_id: int | None
+
+
+class AttributeIn(BaseModel):
+    member_id: int
+
+
+class IgnoreIn(BaseModel):
+    reason: str = Field(min_length=1)
+
+
+class ReconciliationOut(BaseModel):
+    internal_total: int
+    pooled_balance: int | None
+    drift: int | None
+    snapshot_age_sec: int | None
+    unattributed_count: int
+    unattributed_value: int
+    manual_entry_count: int
+
+
+# ---------------- analytics / settlement ----------------
+class PositionOut(BaseModel):
+    member_id: int
+    display_name: str
+    contributed_nt: Decimal
+    consumed_points: int
+    consumed_value_nt: Decimal
+    balance_points: int
+    balance_value_nt: Decimal
+    fairness_net_nt: Decimal
+
+
+class SettlementTxnOut(BaseModel):
+    from_member_id: int
+    from_name: str
+    to_member_id: int
+    to_name: str
+    amount_nt: Decimal
+
+
+class SettlementOut(BaseModel):
+    rate_nt_per_point: Decimal
+    positions: list[PositionOut]
+    transactions: list[SettlementTxnOut]
+
+
+class SyncRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    started_at: datetime
+    finished_at: datetime | None
+    status: str
+    rows_seen: int
+    rows_inserted: int
+    error: str | None
+
+
+class MessageOut(BaseModel):
+    detail: str

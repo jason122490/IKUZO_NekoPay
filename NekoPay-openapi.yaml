@@ -1,0 +1,763 @@
+openapi: 3.0.3
+info:
+  title: 白喵一番屋 / NekoPay API
+  version: "1.0.0"
+  description: |
+    Unofficial OpenAPI spec for the **白喵一番屋 / NekoPay** arcade membership + stored-value
+    wallet at `https://shironekoya.net`.
+
+    Reconstructed by **static analysis** of the public uni-app (DCloud) H5 client bundles.
+    `login/do_login` and `Nekopay/getPayHistory` were verified against the live server; other
+    response schemas are best-effort, inferred from how the client consumes each response.
+
+    ## Conventions
+    - **Transport:** the client uses `uni.request` without setting a method, so requests default
+      to **GET with query-string params**. The ThinkPHP backend also accepts POST for the same
+      routes. `common/upload` is the exception (POST `multipart/form-data`).
+    - **Envelope:** every endpoint returns HTTP 200 with `{ code, msg, data }`. `code` is a
+      **string** (e.g. `"1"`, `"0"`).
+    - **Auth:** `do_login` returns `data.token`; authenticated endpoints take that token as the
+      query param `token` (modeled here as the `tokenAuth` security scheme). No header/signature.
+    - **⚠️ Success code is NOT consistent.** Some endpoints treat `code == "1"` as success, most
+      `nekopay/*` treat `code == "0"` as success, and a few are multi-state. Each operation's
+      description states its success code.
+  contact:
+    name: NekoPay (operator)
+
+servers:
+  - url: https://shironekoya.net
+    description: Production
+
+tags:
+  - name: Auth
+    description: Login, registration, password, e-mail verification
+  - name: Account
+    description: Profile and file upload
+  - name: Site
+    description: Site content, server time, counters
+  - name: Card
+    description: NekoPay card binding, transfer, lock
+  - name: Paycode
+    description: Payment PIN (set / change / clear / status)
+  - name: Store
+    description: Points-shop catalog and redemption
+  - name: Spending
+    description: Top-up & spend ledger
+  - name: Tickets
+    description: Ticket listing and claiming
+  - name: Icons
+    description: Card avatar / icon selection
+  - name: Door
+    description: Door-access (門禁) registration
+  - name: Events
+    description: Event exchanges and orders
+  - name: Orders
+    description: Order history and detail
+
+# token is required by default; unauthenticated operations override with `security: []`
+security:
+  - tokenAuth: []
+
+paths:
+  # ----------------------------------------------------------------- Auth
+  /index/login/do_login:
+    get:
+      tags: [Auth]
+      summary: Log in
+      description: "Success: `code == \"1\"`. Returns `data.token`. (verified live)"
+      security: []
+      parameters:
+        - { name: email, in: query, required: true, schema: { type: string, format: email } }
+        - { name: password, in: query, required: true, schema: { type: string, format: password } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+
+  /index/login/getEmail:
+    get:
+      tags: [Auth]
+      summary: Send e-mail verification code
+      description: "Sends a one-time `code` to the e-mail (used by register / forget / change-password). Success: `code == \"1\"`."
+      security: []
+      parameters:
+        - { name: email, in: query, required: true, schema: { type: string, format: email } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  /index/login/reg:
+    get:
+      tags: [Auth]
+      summary: Register
+      description: "Success: `code == \"1\"`. `code` param is the e-mail verification code from getEmail."
+      security: []
+      parameters:
+        - { name: email, in: query, required: true, schema: { type: string, format: email } }
+        - { name: code, in: query, required: true, schema: { type: string }, description: e-mail verification code }
+        - { name: password, in: query, required: true, schema: { type: string, format: password } }
+        - { name: repassword, in: query, required: true, schema: { type: string, format: password } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  /index/login/forget:
+    get:
+      tags: [Auth]
+      summary: Reset password (also reused for change-password)
+      description: "Success: `code == \"1\"`. Requires the e-mail verification code."
+      security: []
+      parameters:
+        - { name: email, in: query, required: true, schema: { type: string, format: email } }
+        - { name: code, in: query, required: true, schema: { type: string }, description: e-mail verification code }
+        - { name: password, in: query, required: true, schema: { type: string, format: password } }
+        - { name: repassword, in: query, required: true, schema: { type: string, format: password } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  # ----------------------------------------------------------------- Account
+  /index/user/index:
+    get:
+      tags: [Account]
+      summary: Get profile / validate session
+      description: |
+        Dual purpose: auth gate on page load (if `code != "1"` the client redirects to login)
+        and profile fetch. Success: `code == "1"`.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProfileResponse' }
+
+  /index/user/do_user_info:
+    get:
+      tags: [Account]
+      summary: Update profile
+      description: "Success: `code == \"1\"` (`code == \"3\"` ⇒ token invalid)."
+      parameters:
+        - { name: nickname, in: query, required: true, schema: { type: string } }
+        - { name: pic, in: query, required: false, schema: { type: string }, description: image path returned by /index/common/upload }
+        - { name: birth_date, in: query, required: false, schema: { type: string, example: "1990-01-01" } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  /index/common/upload:
+    post:
+      tags: [Account]
+      summary: Upload an image (avatar)
+      description: |
+        `multipart/form-data` via `uni.uploadFile`. Returns a JSON **string** envelope; on
+        `code == "1"`, `data` is the stored image path (then passed as `pic` to do_user_info).
+        NOTE: the client sends no token and a hard-coded `user=test`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+                user: { type: string, default: "test" }
+              required: [file]
+      responses:
+        "200":
+          description: OK (body is a JSON string)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { type: string, description: stored image path }
+
+  # ----------------------------------------------------------------- Site
+  /index/index/get_time:
+    get:
+      tags: [Site]
+      summary: Server time + user counters
+      description: "Success: `code == \"1\"`."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/Counters' } }
+
+  /index/index/ed_tongji:
+    get:
+      tags: [Site]
+      summary: Log visit + return counters
+      description: "Statistics (統計) ping fired on page loads. Success: `code == \"1\"`."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/Counters' } }
+
+  /index/index/get_site:
+    get:
+      tags: [Site]
+      summary: Get site content/config by type
+      description: "Generic CMS fetch; `type` selects the section (observed 2, 4). Success: `code == \"1\"`."
+      security: []
+      parameters:
+        - { name: type, in: query, required: true, schema: { type: integer, example: 2 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          app_image: { type: string }
+                        additionalProperties: true
+
+  # ----------------------------------------------------------------- Card
+  /index/nekopay/user_info:
+    get:
+      tags: [Card]
+      summary: Wallet / card summary
+      description: "Success: `code == \"0\"`. `cardId == 0` ⇒ no card linked."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/UserInfo' } }
+
+  /index/nekopay/link:
+    get:
+      tags: [Card]
+      summary: Bind a physical card
+      description: "Success: `code == \"0\"`."
+      parameters:
+        - { name: cardIdFront, in: query, required: true, schema: { type: string } }
+        - { name: cardIdBack, in: query, required: true, schema: { type: string } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  /index/nekopay/unlink:
+    get:
+      tags: [Card]
+      summary: Unbind card
+      description: "Success: `code == \"0\"`."
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  /index/nekopay/trans_card:
+    get:
+      tags: [Card]
+      summary: Transfer to a new card
+      description: "Migrates balance/membership to a replacement card. Success: `code == \"0\"`."
+      parameters:
+        - { name: cardIdFront, in: query, required: true, schema: { type: string } }
+        - { name: cardIdBack, in: query, required: true, schema: { type: string } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  /index/nekopay/trans_check:
+    get:
+      tags: [Card]
+      summary: Transfer status
+      description: "Success: `code == \"0\"`."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          cardId: { type: integer }
+                          transCard: { type: object, additionalProperties: true, nullable: true }
+
+  /index/nekopay/lock:
+    get:
+      tags: [Card]
+      summary: Freeze card
+      description: "Success: `code == \"0\"`."
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  /index/nekopay/unlock:
+    get:
+      tags: [Card]
+      summary: Unfreeze card
+      description: "Success: `code == \"0\"`."
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  # ----------------------------------------------------------------- Paycode
+  /index/nekopay/paycode_get:
+    get:
+      tags: [Paycode]
+      summary: Pay-code (PIN) status
+      description: |
+        `payCode` is a secret PIN (not a QR). `payCode` present ⇒ enabled, absent ⇒ not set.
+        `status`: `normal` | `locked` | other. `reqFlag` ⇒ a charge is pending. Success: `code == "0"`.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/PaycodeStatus' } }
+
+  /index/nekopay/paycode_set:
+    get:
+      tags: [Paycode]
+      summary: Set / change pay-code PIN
+      description: |
+        First-time set: send only `paycodeSet` (success `code == "0"`).
+        Change: send `paycodeCurrent` + `paycodeSet` (success `code == "1"`; `"2"` ⇒ wrong current PIN).
+      parameters:
+        - { name: paycodeSet, in: query, required: true, schema: { type: string }, description: new PIN }
+        - { name: paycodeCurrent, in: query, required: false, schema: { type: string }, description: current PIN (change mode only) }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  /index/nekopay/paycode_clear:
+    get:
+      tags: [Paycode]
+      summary: Remove pay-code PIN
+      description: "Multi-state `code` (0/1/2; `\"2\"` ⇒ wrong current PIN)."
+      parameters:
+        - { name: paycodeCurrent, in: query, required: true, schema: { type: string }, description: current PIN }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  # ----------------------------------------------------------------- Spending
+  /index/Nekopay/getPayHistory:
+    get:
+      tags: [Spending]
+      summary: Top-up & spend ledger
+      description: |
+        Success: `code == "0"`. `topup[].name` = shop; `pay[].name` = "shop - machine/game".
+        `time` has no year and is minute-resolution. Returns recent records only (no pagination),
+        and carries no per-cabinet identifier. (verified live)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/PayHistory' } }
+
+  # ----------------------------------------------------------------- Store
+  /index/nekopay/store:
+    get:
+      tags: [Store]
+      summary: Points-shop catalog or item
+      description: "No `uuid` ⇒ catalog list; with `uuid` ⇒ item detail. Success: `code == \"0\"` (`\"100\"` ⇒ card not linked)."
+      parameters:
+        - { name: uuid, in: query, required: false, schema: { type: string }, description: item uuid (detail mode) }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/StoreData' } }
+
+  /index/nekopay/submitStoreOrder:
+    get:
+      tags: [Store]
+      summary: Redeem a store item
+      description: "Success: `code == \"0\"`; `200/201/3` ⇒ out-of-stock / insufficient points / token error."
+      parameters:
+        - { name: uuid, in: query, required: true, schema: { type: string } }
+        - { name: extra, in: query, required: false, schema: { type: string } }
+        - { name: address, in: query, required: false, schema: { type: string }, description: "built as '<address> - <delivery>'" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  # ----------------------------------------------------------------- Tickets
+  /index/Nekopay/getTicket:
+    get:
+      tags: [Tickets]
+      summary: List tickets
+      description: "Success: `code == \"0\"`."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/TicketData' } }
+
+  /index/Nekopay/ticketReceive:
+    get:
+      tags: [Tickets]
+      summary: Claim a ticket
+      description: "Success: `code == \"0\"`."
+      parameters:
+        - { name: ticket, in: query, required: true, schema: { type: string }, description: ticket id }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  # ----------------------------------------------------------------- Icons
+  /index/nekopay/icon_get:
+    get:
+      tags: [Icons]
+      summary: Available icons
+      description: "Success: `code == \"0\"`."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          currentId: { type: integer }
+                          currentName: { type: string }
+                          iconList: { type: array, items: { type: object, additionalProperties: true } }
+
+  /index/nekopay/icon_set:
+    get:
+      tags: [Icons]
+      summary: Choose icon
+      description: "Success: `code == \"0\"`."
+      parameters:
+        - { name: iconId, in: query, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  # ----------------------------------------------------------------- Door
+  /index/nekopay/door_info:
+    get:
+      tags: [Door]
+      summary: Door-card status
+      description: "Success: `code == \"0\"`."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/DoorInfo' } }
+
+  /index/nekopay/door_sms:
+    get:
+      tags: [Door]
+      summary: Send phone verification SMS
+      parameters:
+        - { name: phone, in: query, required: true, schema: { type: string } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  /index/nekopay/door_submit:
+    get:
+      tags: [Door]
+      summary: Verify phone & enable door access
+      parameters:
+        - { name: phone, in: query, required: true, schema: { type: string } }
+        - { name: code, in: query, required: true, schema: { type: string }, description: SMS code }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  # ----------------------------------------------------------------- Events
+  /index/nekopay/event_1031:
+    get:
+      tags: [Events]
+      summary: Event exchange (1031)
+      description: "Success: `code == \"0\"` (also inner `data.code`)."
+      parameters:
+        - { name: uuid, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/EventExchange' } }
+
+  /index/nekopay/event_1022:
+    get:
+      tags: [Events]
+      summary: Event exchange (1022, premium variant)
+      description: "Success: `code == \"0\"` (also inner `data.code`)."
+      parameters:
+        - { name: uuid, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/EventExchange' } }
+
+  /index/nekopay/submitOrder:
+    get:
+      tags: [Events]
+      summary: Place event order
+      description: "Success: `code == \"0\"`; `200/201/3` ⇒ stock / points / token errors."
+      parameters:
+        - { name: uuid, in: query, required: true, schema: { type: string } }
+        - { name: address, in: query, required: false, schema: { type: string } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  /index/nekopay/submitOrderPremium:
+    get:
+      tags: [Events]
+      summary: Place premium event order
+      description: "Success: `code == \"0\"`; `200/201/3` ⇒ stock / points / token errors."
+      parameters:
+        - { name: uuid, in: query, required: true, schema: { type: string } }
+        - { name: extra, in: query, required: false, schema: { type: string } }
+        - { name: address, in: query, required: false, schema: { type: string }, description: "built as '<address> - <delivery>'" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Envelope' } } } }
+
+  /index/nekopay/form2605Premium:
+    get:
+      tags: [Events]
+      summary: Event 1032 premium form
+      description: "Codes: `\"0\"` ok, `\"3\"`/`\"800\"` = state (already filled / not premium)."
+      parameters:
+        - { name: store, in: query, required: false, schema: { type: string } }
+        - { name: item, in: query, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          isFilled: { type: boolean }
+                          isKing: { type: boolean }
+                          isPremium: { type: boolean }
+
+  # ----------------------------------------------------------------- Orders
+  /index/order/order_list:
+    get:
+      tags: [Orders]
+      summary: Paginated order history
+      description: "Success: `code == \"1\"`. The only paginated endpoint."
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string }, description: status filter }
+        - { name: page, in: query, required: true, schema: { type: integer, example: 1 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          all_page: { type: integer, description: total pages }
+                          list: { type: array, items: { type: object, additionalProperties: true } }
+
+  /index/order/order_detail:
+    get:
+      tags: [Orders]
+      summary: Single order detail
+      description: "Success: `code == \"1\"`. NOTE: takes only `id`, no token (possible IDOR)."
+      security: []
+      parameters:
+        - { name: id, in: query, required: true, schema: { type: string }, description: order id }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties: { data: { type: object, additionalProperties: true } }
+
+components:
+  securitySchemes:
+    tokenAuth:
+      type: apiKey
+      in: query
+      name: token
+      description: Session token returned by /index/login/do_login (data.token).
+
+  schemas:
+    Envelope:
+      type: object
+      description: Common response envelope. `code` is a string; success value varies per endpoint.
+      properties:
+        code: { type: string, example: "1" }
+        msg: { type: string, example: "登入成功" }
+        data:
+          description: Payload (object, array, scalar, or absent depending on endpoint)
+          nullable: true
+      required: [code, msg]
+
+    LoginResponse:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                token: { type: string, example: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" }
+
+    Profile:
+      type: object
+      properties:
+        nickname: { type: string }
+        pic: { type: string, description: image path; prefix with base URL to display }
+        id_number: { type: string }
+        birth_date: { type: string, example: "1990-01-01" }
+        email: { type: string, format: email }
+
+    ProfileResponse:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/Profile' } }
+
+    Counters:
+      type: object
+      description: User summary counters (gold / points / stamps / messages).
+      properties:
+        nickname: { type: string }
+        jinbi: { type: integer, description: gold }
+        dianshu: { type: integer, description: points }
+        huizhang: { type: integer, description: badges/stamps }
+        liuyan: { type: integer }
+        liuyan_all: { type: integer }
+        now_name: { type: string, description: "get_time only" }
+        now_ymd: { type: string, description: "get_time only" }
+
+    UserInfo:
+      type: object
+      properties:
+        cardId: { type: integer, description: "0 ⇒ no card linked" }
+        balance: { type: number, description: stored-value / points balance }
+        status: { type: string, description: "card status: normal / locked / etc" }
+        type: { type: string }
+        vipName: { type: string }
+        vipNextValue: { type: number }
+        ticketPoint: { type: number }
+        transCard: { nullable: true, description: pending card-transfer info }
+        isDoorCard: { type: boolean }
+        isPremium: { type: boolean }
+        event: { nullable: true, description: active event info }
+
+    PaycodeStatus:
+      type: object
+      properties:
+        cardId: { type: integer }
+        status: { type: string, enum: [normal, locked], description: other values ⇒ card disabled }
+        payCode: { type: string, nullable: true, description: present ⇒ PIN set; secret }
+        reqFlag: { type: boolean, description: a charge is pending approval }
+
+    HistoryRecord:
+      type: object
+      properties:
+        time:
+          type: object
+          properties:
+            date: { type: string, example: "06/10" }
+            time: { type: string, example: "18:07" }
+        name: { type: string, example: "竹喵店 - Chunithm" }
+        value: { type: integer, example: 3 }
+        type: { type: string, enum: [point, ticket], description: "pay records only" }
+
+    PayHistory:
+      type: object
+      properties:
+        topup: { type: array, items: { $ref: '#/components/schemas/HistoryRecord' } }
+        pay: { type: array, items: { $ref: '#/components/schemas/HistoryRecord' } }
+
+    StoreData:
+      type: object
+      properties:
+        store: { description: item list, or single item in detail mode }
+        point: { type: number, description: user's points balance }
+        extra: { nullable: true }
+
+    TicketData:
+      type: object
+      properties:
+        newTicket: { type: array, items: { type: object, additionalProperties: true } }
+        receivedTicket: { type: array, items: { type: object, additionalProperties: true } }
+        outdatedTicket: { type: array, items: { type: object, additionalProperties: true } }
+        availablePoint: { type: number }
+
+    DoorInfo:
+      type: object
+      properties:
+        cardId: { type: integer }
+        doorCode: { type: string }
+        phone: { type: string }
+        reqFlag: { type: boolean }
+        status: { type: string }
+
+    EventExchange:
+      type: object
+      properties:
+        code: { type: string }
+        goods: { nullable: true }
+        point: { type: number }

@@ -1,0 +1,37 @@
+# ---- Web ----
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+jinja2==3.1.5
+python-multipart==0.0.20
+itsdangerous==2.2.0
+
+# ---- DB / ORM ----
+sqlalchemy==2.0.36
+aiosqlite==0.20.0
+alembic==1.14.0
+
+# ---- Schemas / config ----
+pydantic==2.10.4
+pydantic-settings==2.7.1
+email-validator==2.2.0
+
+# ---- Auth / security ----
+# Hand-rolled session auth (DB-backed, revocable) instead of fastapi-users:
+# argon2 hashing + server-side sessions + secure cookies + CSRF.
+passlib[argon2]==1.7.4
+argon2-cffi==23.1.0
+cryptography==44.0.0
+slowapi==0.1.9
+
+# ---- Integration / sync ----
+httpx[http2]==0.28.1
+tenacity==9.0.0
+apscheduler==3.11.0
+
+# ---- Analytics ----
+pandas==2.2.3
+
+# ---- Platform ----
+tzdata==2024.2  # IANA tz database (required on Windows; harmless on Linux)
+
+# ---- Dev / test (install with: pip install -r requirements-dev.txt) ----

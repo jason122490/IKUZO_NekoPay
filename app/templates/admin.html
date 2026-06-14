@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}管理 · NekoPay 帳本{% endblock %}
+{% block content %}
+<div class="grid">
+
+  <section class="card wide">
+    <h2>對帳</h2>
+    <p>內部總點數 <b>{{ recon.internal_total }}</b> ·
+       真實池餘額 <b>{{ recon.pooled_balance if recon.pooled_balance is not none else '—' }}</b> ·
+       差異 <b class="{{ 'neg' if recon.drift else 'pos' }}">{{ recon.drift if recon.drift is not none else '—' }}</b>
+       {% if recon.snapshot_age_sec is not none %}<span class="muted">（快照 {{ recon.snapshot_age_sec }} 秒前）</span>{% endif %}
+    </p>
+    <button class="primary" onclick="syncNow()">立即同步真實帳號</button>
+  </section>
+
+  <section class="card wide">
+    <h2>待歸戶的真實交易（{{ unattributed|length }}）</h2>
+    {% if unattributed %}
+    <table>
+      <thead><tr><th>時間</th><th>類型</th><th>店/機台</th><th>點數</th><th>歸戶給</th><th></th></tr></thead>
+      <tbody>
+        {% for r in unattributed %}
+        <tr>
+          <td>{{ r.occurred_at.strftime('%m/%d %H:%M') }}</td>
+          <td>{{ r.kind }}</td>
+          <td>{{ r.raw_name }}</td>
+          <td class="{{ 'pos' if r.value >= 0 else 'neg' }}">{{ r.value }}</td>
+          <td>
+            <select id="attr_{{ r.id }}">
+              {% for m in members %}<option value="{{ m.id }}">{{ m.display_name }}</option>{% endfor %}
+            </select>
+          </td>
+          <td>
+            <button onclick="attribute({{ r.id }})">歸戶</button>
+            <button class="link" onclick="ignoreTxn({{ r.id }})">忽略</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted">沒有待歸戶的交易 ✅</p>{% endif %}
+  </section>
+
+  <section class="card wide">
+    <h2>待審核的認領（{{ claims|length }}）</h2>
+    {% if claims %}
+    <table>
+      <thead><tr><th>交易#</th><th>認領成員#</th><th></th></tr></thead>
+      <tbody>
+        {% for c in claims %}
+        <tr>
+          <td>{{ c.real_txn_id }}</td>
+          <td>{{ c.member_id }}</td>
+          <td>
+            <button onclick="approveClaim({{ c.id }})">核可</button>
+            <button class="link" onclick="rejectClaim({{ c.id }})">拒絕</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted">沒有待審核的認領</p>{% endif %}
+  </section>
+
+</div>
+{% endblock %}

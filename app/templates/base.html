@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}NekoPay 帳本{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script>window.CSRF = "{{ csrf|default('') }}";</script>
+</head>
+<body>
+  <header class="nav">
+    <a href="/dashboard" class="brand">🐾 NekoPay 帳本</a>
+    <nav>
+      {% if member %}
+        <span class="who">{{ member.display_name }}{% if member.role == 'admin' %} · 管理員{% endif %}</span>
+        {% if member.role == 'admin' %}<a href="/admin">管理</a>{% endif %}
+        <a href="/dashboard">儀表板</a>
+        <form method="post" action="/logout" class="inline"><button class="link">登出</button></form>
+      {% endif %}
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

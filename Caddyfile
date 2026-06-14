@@ -1,0 +1,12 @@
+# Caddy auto-provisions + renews Let's Encrypt TLS for {$DOMAIN}.
+# For local testing DOMAIN defaults to "localhost" (Caddy issues a local cert).
+{$DOMAIN} {
+    encode gzip
+    reverse_proxy app:8000
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy same-origin
+    }
+}

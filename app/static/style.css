@@ -1,0 +1,35 @@
+:root { --bg:#0f1320; --card:#1a2032; --ink:#e8ecf6; --muted:#8b94ad; --line:#2a3147;
+  --accent:#5b8cff; --pos:#3ecf8e; --neg:#ff6b6b; }
+* { box-sizing: border-box; }
+body { margin:0; font-family: system-ui, "Noto Sans TC", sans-serif; background:var(--bg); color:var(--ink); }
+a { color:var(--accent); text-decoration:none; }
+.nav { display:flex; justify-content:space-between; align-items:center; padding:14px 22px;
+  background:#141a2b; border-bottom:1px solid var(--line); }
+.brand { font-weight:700; font-size:18px; }
+.nav nav { display:flex; gap:16px; align-items:center; }
+.who { color:var(--muted); }
+main { max-width:1100px; margin:24px auto; padding:0 16px; }
+.grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; }
+.card.wide { grid-column:1 / -1; }
+.card.login { max-width:380px; margin:8vh auto; }
+h1 { font-size:22px; margin:.2em 0; } h2 { font-size:16px; margin:0 0 12px; }
+h3 { font-size:14px; color:var(--muted); margin:16px 0 8px; }
+.big { font-size:34px; font-weight:700; margin:6px 0; }
+.muted { color:var(--muted); font-size:13px; }
+.error { color:var(--neg); }
+label { display:block; font-size:13px; color:var(--muted); margin:10px 0 0; }
+input, select { width:100%; margin-top:4px; padding:9px 10px; border-radius:9px;
+  border:1px solid var(--line); background:#0e1322; color:var(--ink); font-size:14px; }
+button { margin-top:12px; padding:9px 14px; border-radius:9px; border:1px solid var(--line);
+  background:#222a40; color:var(--ink); cursor:pointer; font-size:14px; }
+button.primary { background:var(--accent); border-color:var(--accent); color:#0b0f1a; font-weight:600; }
+button.link { background:none; border:none; color:var(--accent); padding:4px 6px; }
+.inline { display:inline; }
+table { width:100%; border-collapse:collapse; font-size:14px; }
+th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
+th { color:var(--muted); font-weight:600; }
+.pos { color:var(--pos); } .neg { color:var(--neg); }
+.settle { list-style:none; padding:0; }
+.settle li { padding:8px 0; border-bottom:1px solid var(--line); }
+@media (max-width:720px){ .grid { grid-template-columns:1fr; } }

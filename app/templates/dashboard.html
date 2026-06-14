@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}儀表板 · NekoPay 帳本{% endblock %}
+{% block content %}
+<div class="grid">
+
+  <section class="card">
+    <h2>我的餘額</h2>
+    <p class="big">{{ my_balance }} 點</p>
+    <p class="muted">≈ NT$ {{ (my_balance * rate) }}（匯率 {{ rate }} NT$/點）</p>
+  </section>
+
+  <section class="card">
+    <h2>儲值 <span class="muted">NT$ → 點數</span></h2>
+    <label>成員
+      <select id="tu_member">
+        {% for m in members %}<option value="{{ m.id }}" {% if m.id==member.id %}selected{% endif %}>{{ m.display_name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>金額 (NT$)<input id="tu_money" type="number" min="1" step="0.01" value="100"></label>
+    <label>點數<input id="tu_points" type="number" min="1" value="100"></label>
+    <button class="primary" onclick="doTopup()">儲值</button>
+  </section>
+
+  <section class="card">
+    <h2>投幣 <span class="muted">消耗點數</span></h2>
+    <label>成員
+      <select id="pl_member">
+        {% for m in members %}<option value="{{ m.id }}" {% if m.id==member.id %}selected{% endif %}>{{ m.display_name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>點數<input id="pl_points" type="number" min="1" value="3"></label>
+    <label>備註（機台）<input id="pl_note" type="text" placeholder="竹喵店 - Chunithm"></label>
+    <button class="primary" onclick="doPlay()">投幣</button>
+  </section>
+
+  <section class="card">
+    <h2>轉點 <span class="muted">成員間移轉</span></h2>
+    <label>從
+      <select id="tr_from">
+        {% for m in members %}<option value="{{ m.id }}" {% if m.id==member.id %}selected{% endif %}>{{ m.display_name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>給
+      <select id="tr_to">
+        {% for m in members %}<option value="{{ m.id }}">{{ m.display_name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>點數<input id="tr_points" type="number" min="1" value="10"></label>
+    <button class="primary" onclick="doTransfer()">轉點</button>
+  </section>
+
+  <section class="card wide">
+    <h2>成員餘額與分帳</h2>
+    <table>
+      <thead><tr><th>成員</th><th>餘額(點)</th><th>投入(NT$)</th><th>已消費(點)</th><th>淨額(NT$)</th></tr></thead>
+      <tbody>
+        {% for p in positions %}
+        <tr>
+          <td>{{ p.display_name }}</td>
+          <td>{{ p.balance_points }}</td>
+          <td>{{ p.contributed_nt }}</td>
+          <td>{{ p.consumed_points }}</td>
+          <td class="{{ 'pos' if p.fairness_net_nt >= 0 else 'neg' }}">{{ p.fairness_net_nt }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <h3>結算建議（誰付給誰）</h3>
+    {% if txns %}
+      <ul class="settle">
+        {% for t in txns %}<li><b>{{ t.from_name }}</b> → <b>{{ t.to_name }}</b> ：NT$ {{ t.amount_nt }}</li>{% endfor %}
+      </ul>
+    {% else %}<p class="muted">目前無需結算 🎉</p>{% endif %}
+  </section>
+
+  {% if recon %}
+  <section class="card wide">
+    <h2>對帳（管理員）</h2>
+    <p>內部總點數 <b>{{ recon.internal_total }}</b> ·
+       真實池餘額 <b>{{ recon.pooled_balance if recon.pooled_balance is not none else '—' }}</b> ·
+       差異 <b class="{{ 'neg' if recon.drift else 'pos' }}">{{ recon.drift if recon.drift is not none else '—' }}</b></p>
+    <p class="muted">未歸戶 {{ recon.unattributed_count }} 筆（{{ recon.unattributed_value }} 點）·
+       無真實憑證的內部分錄 {{ recon.manual_entry_count }} 筆 · <a href="/admin">前往歸戶 →</a></p>
+  </section>
+  {% endif %}
+
+  <section class="card wide">
+    <h2>我的近期紀錄</h2>
+    <table>
+      <thead><tr><th>時間</th><th>類型</th><th>點數</th><th>NT$</th><th>備註</th></tr></thead>
+      <tbody>
+        {% for e in recent %}
+        <tr>
+          <td>{{ e.created_at.strftime('%m/%d %H:%M') }}</td>
+          <td>{{ e.entry_type }}</td>
+          <td class="{{ 'pos' if e.points_delta >= 0 else 'neg' }}">{{ e.points_delta }}</td>
+          <td>{{ e.money_nt if e.money_nt is not none else '' }}</td>
+          <td>{{ e.note or '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+</div>
+{% endblock %}

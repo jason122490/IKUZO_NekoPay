@@ -28,6 +28,8 @@ from app.services.settlement import compute_positions, settle
 
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
+# bump to force browsers to re-fetch static CSS/JS after changes
+templates.env.globals["asset_v"] = "4"
 settings = get_settings()
 
 

@@ -33,7 +33,7 @@ button.link.danger { color:var(--neg); }
    button becomes a direct flex sibling of the nav links and aligns with them */
 .nav nav form.inline { display:contents; }
 .nav nav a, .nav nav .who, .nav nav button.link {
-  display:inline-flex; align-items:center; line-height:1; padding:0; }
+  display:inline-flex; align-items:center; line-height:1; padding:0; margin:0; }
 .inline { display:inline; }
 table { width:100%; border-collapse:collapse; font-size:14px; }
 th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }

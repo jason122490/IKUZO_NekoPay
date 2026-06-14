@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}NekoPay 帳本{% endblock %}</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v={{ asset_v }}">
   <script>window.CSRF = "{{ csrf|default('') }}";</script>
 </head>
 <body>
@@ -21,6 +21,6 @@
     </nav>
   </header>
   <main>{% block content %}{% endblock %}</main>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v={{ asset_v }}"></script>
 </body>
 </html>

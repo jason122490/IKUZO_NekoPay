@@ -67,6 +67,7 @@ class AccountSnapshot(Base):
     ticket_point: Mapped[int | None] = mapped_column(Integer, nullable=True)
     vip_name: Mapped[str | None] = mapped_column(String(32), nullable=True)
     vip_next_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    vip_cumulative: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_premium: Mapped[bool | None] = mapped_column(nullable=True)
     raw_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 

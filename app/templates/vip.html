@@ -9,7 +9,15 @@
         {% if vip.is_premium %}<span class="pos" style="font-size:14px">Premium</span>
         {% else %}<span class="muted" style="font-size:14px">普卡</span>{% endif %}</p>
       {% if vip.next_name %}
-        <p class="muted">下一級 <b>{{ vip.next_name }}</b>：累積儲值 NT$ {{ vip.next_value }}</p>
+        <p class="muted">
+          下一級 <b>{{ vip.next_name }}</b>：累積儲值門檻 NT$ {{ vip.next_value }}
+          {% if vip.cumulative is not none %}
+            · 本期累積 NT$ {{ vip.cumulative }}
+            {% if vip.remaining is not none %}· 距離 {{ vip.next_name }} 還差 <b class="neg">NT$ {{ vip.remaining }}</b>{% endif %}
+          {% else %}
+            <br><span style="font-size:12px">（本期累積尚未同步，無法計算還差多少）</span>
+          {% endif %}
+        </p>
       {% else %}
         <p class="muted">已達最高等級 🎉</p>
       {% endif %}

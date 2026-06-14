@@ -172,11 +172,16 @@ async def vip_page(request: Request, session: AsyncSession = Depends(get_session
     vip = None
     if snap is not None and snap.vip_name:
         nxt = vip_next_tier(snap.vip_name)
+        remaining = None
+        if nxt and snap.vip_next_value is not None and snap.vip_cumulative is not None:
+            remaining = max(0, int(snap.vip_next_value) - int(snap.vip_cumulative))
         vip = {
             "name": snap.vip_name,
             "is_premium": snap.is_premium,
             "next_value": snap.vip_next_value,
             "next_name": nxt["name"] if nxt else None,
+            "cumulative": snap.vip_cumulative,
+            "remaining": remaining,
         }
     return templates.TemplateResponse(
         request, "vip.html",

@@ -31,6 +31,22 @@ def next_tier(current_name: str | None) -> dict | None:
     return None
 
 
+def vip_cumulative(event, preferred_key: str = "2009") -> int | None:
+    """Current-cycle cumulative top-up (NT$) from user_info.event.
+
+    event looks like {"2009": "6900"} where the key is the cycle's campaign id.
+    Prefer that key; if it changed (new cycle), fall back to the largest numeric
+    value present. Returns None if nothing usable.
+    """
+    if not isinstance(event, dict):
+        return None
+    v = event.get(preferred_key)
+    if v is not None and str(v).strip().isdigit():
+        return int(v)
+    nums = [int(x) for x in event.values() if str(x).strip().isdigit()]
+    return max(nums) if nums else None
+
+
 def bonus_pct_for(vip_name: str | None) -> int:
     """Top-up bonus % for a tier name; 0 if the tier is unknown (not synced)."""
     for t in VIP_TIERS:

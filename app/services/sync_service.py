@@ -20,8 +20,10 @@ from app.services.nekopay_client import (
     NekoPayTransportError,
 )
 from app.services.token_manager import TokenManager
+from app.config import get_settings
 from app.sync.dedup import parse_history, reconcile
 from app.util.time import local_now, utcnow
+from app.vip import vip_cumulative
 
 
 async def _fetch_with_retry(factory, tm: TokenManager, retries: int, backoff: float):
@@ -82,6 +84,9 @@ async def run_sync_cycle(
                 ticket_point=info.get("ticketPoint"),
                 vip_name=info.get("vipName"),
                 vip_next_value=info.get("vipNextValue"),
+                vip_cumulative=vip_cumulative(
+                    info.get("event"), get_settings().vip_event_key
+                ),
                 is_premium=info.get("isPremium"),
                 raw_json=json.dumps(info, ensure_ascii=False),
             )

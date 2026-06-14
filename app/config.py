@@ -43,6 +43,8 @@ class Settings(BaseSettings):
 
     # Economics
     default_rate_nt_per_point: float = 10.0  # 1 point = 10 NT$ (admin-settable)
+    # user_info.event key holding this cycle's cumulative top-up (changes per cycle)
+    vip_event_key: str = "2009"
 
     # Bootstrap admin
     admin_bootstrap_email: str = ""

@@ -1,8 +1,8 @@
 """Edit / delete ledger records.
 
 Policy:
-  * admins may edit/delete any record, no time limit;
-  * members may edit/delete only their OWN records, within 30 minutes.
+  * admins may edit/delete any record;
+  * members may edit/delete only their OWN records (no time limit).
 
 Side effects handled:
   * deleting an auto-attributed entry frees its real transaction (back to
@@ -13,32 +13,33 @@ Side effects handled:
 """
 from __future__ import annotations
 
-from datetime import timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enums import AttributionStatus, EntryType, Role
+from app.models.enums import AttributionStatus, EntryType, RealKind, Role
 from app.models.ledger import LedgerEntry
 from app.models.real import RealTransaction
 from app.models.user import Member
 from app.services import audit_service
-from app.services.errors import ForbiddenError, NotFoundError, ValidationError
+from app.services.errors import (
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    ValidationError,
+)
 from app.util.time import utcnow
-
-EDIT_WINDOW = timedelta(minutes=30)
 
 
 def _check_permission(actor: Member, group: list[LedgerEntry]) -> None:
+    """Members may modify only their own records; admins may modify any."""
     if actor.role == Role.ADMIN.value:
-        return  # admins: any record, any time
+        return
     owners = {e.member_id for e in group}
     if actor.id not in owners:
         raise ForbiddenError("只能修改自己的紀錄")
-    oldest = min(e.created_at for e in group)
-    if utcnow() - oldest > EDIT_WINDOW:
-        raise ForbiddenError("超過 30 分鐘無法修改，請聯絡管理員")
 
 
 async def _group(session: AsyncSession, entry: LedgerEntry) -> list[LedgerEntry]:
@@ -150,6 +151,60 @@ async def edit_entry(
                 "note": entry.note,
             },
         },
+    )
+    await session.commit()
+    await session.refresh(entry)
+    return entry
+
+
+async def attribute_existing(
+    session: AsyncSession, *, actor: Member, entry_id: int, real_txn_id: int
+) -> LedgerEntry:
+    """補歸戶: link an existing manual top-up/play entry to a matching real txn.
+
+    Marks the real txn attributed to the entry's owner and links it back, so a
+    previously evidence-less manual entry becomes reconciled. The points/kind
+    must match the real transaction.
+    """
+    entry = await session.get(LedgerEntry, entry_id)
+    if entry is None:
+        raise NotFoundError("紀錄不存在")
+    _check_permission(actor, [entry])
+    if entry.transfer_group_id is not None or entry.entry_type not in (
+        EntryType.TOPUP.value, EntryType.PLAY.value
+    ):
+        raise ValidationError("此類型不可補歸戶")
+    if entry.source_real_txn_id is not None:
+        raise ConflictError("此筆已歸戶")
+
+    rt = await session.get(RealTransaction, real_txn_id)
+    if rt is None:
+        raise NotFoundError("真實交易不存在")
+    if rt.attribution_status != AttributionStatus.UNATTRIBUTED.value:
+        raise ConflictError("該真實交易已被歸戶")
+    expected_kind = (
+        RealKind.TOPUP.value if entry.entry_type == EntryType.TOPUP.value
+        else RealKind.PAY.value
+    )
+    if rt.kind != expected_kind:
+        raise ValidationError("交易類型不符")
+    if abs(rt.value) != abs(entry.points_delta):
+        raise ValidationError("點數不符")
+
+    entry.source_real_txn_id = rt.id
+    rt.attribution_status = AttributionStatus.ATTRIBUTED.value
+    rt.attributed_member_id = entry.member_id
+    rt.attributed_by = actor.id
+    rt.attributed_at = utcnow()
+    rt.ledger_entry_id = entry.id
+    try:
+        await session.flush()  # partial unique index guards double-attribution
+    except IntegrityError:
+        await session.rollback()
+        raise ConflictError("此筆已歸戶")
+    await audit_service.record(
+        session, actor_id=actor.id, action="ledger.attribute",
+        target_type="ledger", target_id=entry_id, detail={"real_txn_id": rt.id},
     )
     await session.commit()
     await session.refresh(entry)

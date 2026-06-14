@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -12,8 +11,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.util.time import utcnow
-
-EDIT_WINDOW = timedelta(minutes=30)
 
 from app.config import get_settings
 from app.db import get_session
@@ -34,7 +31,7 @@ from app.services.settlement import compute_positions, settle
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
 # bump to force browsers to re-fetch static CSS/JS after changes
-templates.env.globals["asset_v"] = "7"
+templates.env.globals["asset_v"] = "8"
 settings = get_settings()
 
 
@@ -135,13 +132,18 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
             .order_by(LedgerEntry.created_at.desc()).limit(15)
         )).scalars()
     )
-    now = utcnow()
     is_admin = member.role == "admin"
     recent_rows = [
         {
             "e": e,
-            "can_modify": is_admin or (now - e.created_at) <= EDIT_WINDOW,
+            "can_modify": True,  # members may edit/delete their own records anytime
             "is_transfer": e.transfer_group_id is not None,
+            # 補歸戶: a manual top-up/play not yet linked to a real transaction
+            "can_attribute": (
+                e.transfer_group_id is None
+                and e.source_real_txn_id is None
+                and e.entry_type in (EntryType.TOPUP.value, EntryType.PLAY.value)
+            ),
         }
         for e in entries
     ]

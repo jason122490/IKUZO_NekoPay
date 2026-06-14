@@ -81,17 +81,21 @@ async def test_member_edits_own_within_window(ctx):
     await c.aclose()
 
 
-async def test_member_cannot_edit_after_30min(ctx):
+async def test_member_can_edit_own_record_anytime(ctx):
+    # no time limit: a member may edit/delete their own old records
     transport, maker = ctx
     c, h = await _login(transport)
     bob = await _id(c, "bob@nekopay.app")
     e = (await c.post("/api/topups", headers=h,
                       json={"member_id": bob, "money_nt": 1000})).json()
-    await _age_out(maker, e["id"])
+    await _age_out(maker, e["id"])  # well past the old 30-min window
     r = await c.post(f"/api/ledger/{e['id']}/edit", headers=h, json={"points": 60})
-    assert r.status_code == 403
-    # delete also blocked after the window
-    assert (await c.request("DELETE", f"/api/ledger/{e['id']}", headers=h)).status_code == 403
+    assert r.status_code == 200 and r.json()["points_delta"] == 60
+    e2 = (await c.post("/api/topups", headers=h,
+                       json={"member_id": bob, "money_nt": 500})).json()
+    await _age_out(maker, e2["id"])
+    assert (await c.request("DELETE", f"/api/ledger/{e2['id']}",
+                            headers=h)).status_code == 200
     await c.aclose()
 
 
@@ -221,6 +225,52 @@ async def test_force_delete_frees_attributed_real_txn(ctx):
         rt = await s.get(RealTransaction, rid)
         assert rt.attribution_status == "unattributed" and rt.attributed_member_id is None
     await admin.aclose()
+
+
+async def _seed_real(maker, value, key):
+    async with maker() as s:
+        s.add(RealTransaction(
+            kind="pay", shop="竹喵店", machine="Chunithm", raw_name="竹喵店 - Chunithm",
+            value=value, pay_type="point", occurred_at=utcnow(),
+            occurred_date_raw="06/10", occurred_time_raw="20:47",
+            base_hash=key, dedup_key=key, occurrence_index=0))
+        await s.commit()
+        return (await s.execute(
+            select(RealTransaction.id).where(RealTransaction.dedup_key == key)
+        )).scalar_one()
+
+
+async def test_supplement_attribute_links_manual_entry(ctx):
+    transport, maker = ctx
+    c, h = await _login(transport)
+    bob = await _id(c, "bob@nekopay.app")
+    await c.post("/api/topups", headers=h, json={"member_id": bob, "money_nt": 1000})
+    play = (await c.post("/api/plays", headers=h,
+                         json={"member_id": bob, "points": 3})).json()
+    assert play["source_real_txn_id"] is None
+    rid = await _seed_real(maker, -3, "sa1")
+    # 補歸戶: link the manual play to the matching real txn
+    r = await c.post(f"/api/ledger/{play['id']}/attribute", headers=h,
+                     json={"real_txn_id": rid})
+    assert r.status_code == 200 and r.json()["source_real_txn_id"] == rid
+    async with maker() as s:
+        rt = await s.get(RealTransaction, rid)
+        assert rt.attribution_status == "attributed" and rt.attributed_member_id == bob
+    await c.aclose()
+
+
+async def test_supplement_attribute_amount_must_match(ctx):
+    transport, maker = ctx
+    c, h = await _login(transport)
+    bob = await _id(c, "bob@nekopay.app")
+    await c.post("/api/topups", headers=h, json={"member_id": bob, "money_nt": 1000})
+    play = (await c.post("/api/plays", headers=h,
+                         json={"member_id": bob, "points": 3})).json()
+    rid = await _seed_real(maker, -5, "sa2")  # different amount
+    r = await c.post(f"/api/ledger/{play['id']}/attribute", headers=h,
+                     json={"real_txn_id": rid})
+    assert r.status_code == 400  # 點數不符
+    await c.aclose()
 
 
 async def test_edit_attributed_amount_blocked_note_ok(ctx):

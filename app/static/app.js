@@ -207,6 +207,19 @@ async function resetPwd(id) {
     alert("已重設，對方需用新密碼重新登入"); NK.reload();
   }
 }
+// 補歸戶: link an existing manual record to a matching unattributed real txn
+async function supplementAttribute(btn) {
+  const id = +btn.dataset.id;
+  const kind = btn.dataset.type === "TOPUP" ? "topup" : "pay";
+  const points = +btn.dataset.points;
+  const res = await NK.post("/api/attribution/match", { kind, points });
+  if (!res) return;
+  if (!res.candidates.length) { alert("找不到金額相同且尚未歸戶的真實紀錄"); return; }
+  const chosen = await pickCandidate(res.candidates);
+  if (chosen === "manual" || chosen === "cancel") return;
+  if (await NK.post(`/api/ledger/${id}/attribute`, { real_txn_id: chosen })) NK.reload();
+}
+
 async function deleteMember(id) {
   if (!confirm("確定刪除此帳號？")) return;
   let r = await fetch(`/api/members/${id}`, {

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
 from app.models.user import Member
-from app.schemas import EditEntryIn, LedgerEntryOut, MessageOut
+from app.schemas import EditEntryIn, LedgerEntryOut, LinkRealIn, MessageOut
 from app.security import get_current_member, verify_csrf
 from app.services import ledger_edit
 
@@ -27,6 +27,19 @@ async def edit_entry(
         points=payload.points,
         money_nt=payload.money_nt,
         note=payload.note,
+    )
+    return LedgerEntryOut.model_validate(entry)
+
+
+@router.post("/{entry_id}/attribute", response_model=LedgerEntryOut)
+async def attribute_existing(
+    entry_id: int,
+    payload: LinkRealIn,
+    member: Member = Depends(get_current_member),
+    session: AsyncSession = Depends(get_session),
+) -> LedgerEntryOut:
+    entry = await ledger_edit.attribute_existing(
+        session, actor=member, entry_id=entry_id, real_txn_id=payload.real_txn_id
     )
     return LedgerEntryOut.model_validate(entry)
 

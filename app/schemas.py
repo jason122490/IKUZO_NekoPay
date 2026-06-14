@@ -99,6 +99,10 @@ class EditEntryIn(BaseModel):
     note: str | None = None
 
 
+class LinkRealIn(BaseModel):
+    real_txn_id: int  # 補歸戶: real transaction to link an existing entry to
+
+
 class LedgerEntryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

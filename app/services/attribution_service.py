@@ -47,7 +47,7 @@ async def attribute(
             entry_type=EntryType.TOPUP.value,
             points_delta=points,
             money_nt=money,
-            note=f"attributed top-up: {rt.raw_name}",
+            note=rt.raw_name,
             created_by=actor_id,
             source_real_txn_id=rt.id,
         )
@@ -56,7 +56,7 @@ async def attribute(
             member_id=member_id,
             entry_type=EntryType.PLAY.value,
             points_delta=-points,
-            note=f"attributed play: {rt.raw_name}",
+            note=rt.raw_name,
             created_by=actor_id,
             source_real_txn_id=rt.id,
         )

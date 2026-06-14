@@ -91,6 +91,26 @@ async def test_sync_refreshes_token_on_auth_error(session):
         await client.aclose()
 
 
+async def test_sync_respects_since_cutoff(session):
+    from app.services import config_service
+    await config_service.set_sync_since(session, "2026-06-10")
+    history = {
+        "topup": [{"time": {"date": "06/12", "time": "18:07"}, "name": "竹喵店", "value": 33}],
+        "pay": [{"time": {"date": "06/05", "time": "10:00"},
+                 "name": "竹喵店 - Chunithm", "value": 3, "type": "point"}],
+    }
+    with respx.mock:
+        _mock_ok(history)
+        client = NekoPayClient(BASE, "UA")
+        tm = TokenManager(client, "e", "p")
+        run = await run_sync_cycle(
+            session, client, tm, TZ, transport_retries=1, backoff_base=0
+        )
+        assert run.status == "ok"
+        assert run.rows_inserted == 1  # 06/12 kept; 06/05 is before the cutoff
+        await client.aclose()
+
+
 async def test_sync_records_auth_failure(session):
     with respx.mock:
         respx.get(f"{BASE}/index/login/do_login").mock(

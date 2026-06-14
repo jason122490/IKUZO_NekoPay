@@ -10,11 +10,11 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.audit import AuditLog
+from app.models.audit import AppSetting, AuditLog
 from app.models.auth import UserSession
 from app.models.enums import AttributionStatus, Role
 from app.models.ledger import AttributionClaim, LedgerEntry
-from app.models.real import RealTransaction
+from app.models.real import AccountSnapshot, RealTransaction, SyncRun, SyncState
 from app.models.user import Member
 from app.services import audit_service
 from app.services.auth_service import hash_password
@@ -266,6 +266,31 @@ async def delete_member(
                 "purged_refs": refs},
     )
     await session.delete(member)
+    await session.commit()
+
+
+async def reset_database(session: AsyncSession, *, keep_member_id: int) -> None:
+    """Wipe all data, keeping only the acting admin's account (and their session).
+
+    Removes every member except the acting admin, plus all ledger entries, real
+    transactions, snapshots, sync runs/state, claims, audit log, and app
+    settings. Irreversible.
+    """
+    await session.execute(delete(LedgerEntry))
+    await session.execute(delete(AttributionClaim))
+    await session.execute(delete(RealTransaction))
+    await session.execute(delete(AccountSnapshot))
+    await session.execute(delete(SyncRun))
+    await session.execute(delete(SyncState))
+    await session.execute(delete(AuditLog))
+    await session.execute(delete(AppSetting))
+    await session.execute(delete(Member).where(Member.id != keep_member_id))
+    await session.execute(
+        delete(UserSession).where(UserSession.member_id != keep_member_id)
+    )
+    await audit_service.record(
+        session, actor_id=keep_member_id, action="db.reset", target_type="db"
+    )
     await session.commit()
 
 

@@ -180,6 +180,24 @@ async function syncNow() {
   if (r) { alert("同步狀態：" + r.status + "，新增 " + r.rows_inserted + " 筆"); NK.reload(); }
 }
 
+async function setSyncSince() {
+  const since = val("sync_since");
+  const r = await NK.post("/api/admin/sync-since", { since });
+  if (r) { alert(since ? ("已設定同步起始日：" + r.since) : "已清除同步起始日"); NK.reload(); }
+}
+async function clearSyncSince() {
+  if (await NK.post("/api/admin/sync-since", { since: null })) { alert("已清除同步起始日"); NK.reload(); }
+}
+
+async function resetDatabase() {
+  if (!confirm("確定要重置整個資料庫嗎？\n會刪除所有成員(除了你)、所有紀錄與設定，無法復原！")) return;
+  const pwd = await inputModal("請輸入你的密碼以確認重置", "密碼", "password");
+  if (!pwd) return;
+  if (await NK.post("/api/admin/reset", { password: pwd })) {
+    alert("已重置資料庫"); location.href = "/dashboard";
+  }
+}
+
 // ---- member management (admin) ----
 async function addMember() {
   const email = val("nm_email"), name = val("nm_name"), pwd = val("nm_pwd"), role = val("nm_role");

@@ -20,9 +20,12 @@ from app.services.nekopay_client import (
     NekoPayTransportError,
 )
 from app.services.token_manager import TokenManager
+from datetime import datetime
+
 from app.config import get_settings
+from app.services import config_service
 from app.sync.dedup import parse_history, reconcile
-from app.util.time import local_now, utcnow
+from app.util.time import local_now, local_to_utc, utcnow
 from app.vip import vip_cumulative
 
 
@@ -93,6 +96,14 @@ async def run_sync_cycle(
         )
 
         records = parse_history(data, local_now(tz_name), tz_name)
+        # optional cutoff: ingest only real txns on/after the configured date
+        since = await config_service.get_sync_since(session)
+        if since:
+            try:
+                cutoff = local_to_utc(datetime.strptime(since, "%Y-%m-%d"), tz_name)
+                records = [r for r in records if r.occurred_at >= cutoff]
+            except ValueError:
+                pass  # malformed setting -> ignore the cutoff
         base_hashes = {r.base_hash for r in records}
         existing_counts: dict[str, int] = {}
         if base_hashes:

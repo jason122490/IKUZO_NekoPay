@@ -273,6 +273,34 @@ async def test_supplement_attribute_amount_must_match(ctx):
     await c.aclose()
 
 
+async def test_admin_reset_database(ctx):
+    transport, maker = ctx
+    admin, ah = await _login(transport, "admin@nekopay.app")
+    adm = await _id(admin, "admin@nekopay.app")
+    bob = await _id(admin, "bob@nekopay.app")
+    await admin.post("/api/topups", headers=ah, json={"member_id": bob, "money_nt": 1000})
+    # wrong password -> 403
+    assert (await admin.post("/api/admin/reset", headers=ah,
+                             json={"password": "wrong"})).status_code == 403
+    # correct password -> wipes data, keeps only the acting admin
+    assert (await admin.post("/api/admin/reset", headers=ah,
+                             json={"password": "secret1"})).status_code == 200
+    assert [m["id"] for m in (await admin.get("/api/members")).json()] == [adm]
+    async with maker() as s:
+        cnt = (await s.execute(
+            select(func.count()).select_from(LedgerEntry))).scalar_one()
+        assert cnt == 0
+    await admin.aclose()
+
+
+async def test_member_cannot_reset_database(ctx):
+    transport, _ = ctx
+    bob, bh = await _login(transport)  # member
+    assert (await bob.post("/api/admin/reset", headers=bh,
+                           json={"password": "secret1"})).status_code == 403
+    await bob.aclose()
+
+
 async def test_edit_attributed_amount_blocked_note_ok(ctx):
     transport, maker = ctx
     async with maker() as s:

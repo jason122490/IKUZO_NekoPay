@@ -71,6 +71,18 @@ class RateOut(BaseModel):
     rate: Decimal
 
 
+class SyncSinceIn(BaseModel):
+    since: str | None = None  # YYYY-MM-DD, or null/empty to clear the cutoff
+
+
+class SyncSinceOut(BaseModel):
+    since: str | None
+
+
+class ResetIn(BaseModel):
+    password: str  # re-entered to confirm the (irreversible) database reset
+
+
 class PlayIn(BaseModel):
     member_id: int
     points: int = Field(gt=0)

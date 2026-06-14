@@ -10,6 +10,14 @@
     <button class="primary" onclick="setRate()">更新匯率</button>
   </section>
 
+  <section class="card">
+    <h2>同步起始日 <span class="muted">只匯入此日期(含)之後的真實交易</span></h2>
+    <p class="muted">設定後，同步只會匯入該日期之後的紀錄；先前已匯入的舊紀錄會保留。留空則不限制。</p>
+    <label>起始日期<input id="sync_since" type="date" value="{{ sync_since or '' }}"></label>
+    <button class="primary" onclick="setSyncSince()">儲存</button>
+    <button class="link" onclick="clearSyncSince()">清除限制</button>
+  </section>
+
   <section class="card wide">
     <h2>對帳</h2>
     <p>內部總點數 <b>{{ recon.internal_total }}</b> ·
@@ -29,7 +37,7 @@
         {% for r in unattributed %}
         <tr>
           <td>{{ r.occurred_at.strftime('%m/%d %H:%M') }}</td>
-          <td>{{ r.kind }}</td>
+          <td>{{ KIND_LABELS.get(r.kind, r.kind) }}</td>
           <td>{{ r.raw_name }}</td>
           <td class="{{ 'pos' if r.value >= 0 else 'neg' }}">{{ r.value }}</td>
           <td>
@@ -46,6 +54,12 @@
       </tbody>
     </table>
     {% else %}<p class="muted">沒有待歸戶的交易 ✅</p>{% endif %}
+  </section>
+
+  <section class="card wide" style="border-color:var(--neg)">
+    <h2 class="neg">危險區：重置資料庫</h2>
+    <p class="muted">會刪除所有成員（除了你）、所有紀錄、真實交易、快照、稽核與設定，僅保留你的管理員帳號。此動作無法復原，需重新輸入密碼確認。</p>
+    <button class="link danger" onclick="resetDatabase()">重置資料庫…</button>
   </section>
 
   <section class="card wide">

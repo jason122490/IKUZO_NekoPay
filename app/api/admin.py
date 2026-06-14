@@ -1,7 +1,9 @@
 """Admin endpoints: sync, attribution, claims, adjustments, reconciliation."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,10 +21,19 @@ from app.schemas import (
     RateOut,
     ReconciliationOut,
     RealTxnOut,
+    ResetIn,
     SyncRunOut,
+    SyncSinceIn,
+    SyncSinceOut,
 )
 from app.security import require_admin, verify_csrf
-from app.services import attribution_service, config_service, ledger_service
+from app.services import (
+    attribution_service,
+    config_service,
+    ledger_service,
+    member_admin,
+)
+from app.services.auth_service import authenticate
 from app.services.reconciliation import reconcile_report
 
 router = APIRouter(
@@ -169,6 +180,41 @@ async def set_rate(
 ) -> RateOut:
     rate = await config_service.set_rate(session, payload.rate)
     return RateOut(rate=rate)
+
+
+@router.get("/sync-since", response_model=SyncSinceOut)
+async def get_sync_since(session: AsyncSession = Depends(get_session)) -> SyncSinceOut:
+    return SyncSinceOut(since=await config_service.get_sync_since(session))
+
+
+@router.post("/sync-since", response_model=SyncSinceOut, dependencies=[Depends(verify_csrf)])
+async def set_sync_since(
+    payload: SyncSinceIn,
+    _admin: Member = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+) -> SyncSinceOut:
+    value = (payload.since or "").strip() or None
+    if value:
+        try:
+            datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="日期格式需為 YYYY-MM-DD")
+    await config_service.set_sync_since(session, value)
+    return SyncSinceOut(since=value)
+
+
+@router.post("/reset", response_model=MessageOut, dependencies=[Depends(verify_csrf)])
+async def reset_database(
+    payload: ResetIn,
+    admin: Member = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+) -> MessageOut:
+    # re-authenticate the acting admin before this irreversible wipe
+    confirmed = await authenticate(session, admin.email, payload.password)
+    if confirmed is None or confirmed.id != admin.id:
+        raise HTTPException(status_code=403, detail="密碼錯誤")
+    await member_admin.reset_database(session, keep_member_id=admin.id)
+    return MessageOut(detail="已重置資料庫")
 
 
 @router.get("/reconciliation", response_model=ReconciliationOut)

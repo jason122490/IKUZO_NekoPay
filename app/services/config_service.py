@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.audit import AppSetting
 
 RATE_KEY = "rate_nt_per_point"
+SYNC_SINCE_KEY = "sync_since_date"  # YYYY-MM-DD; ingest only real txns on/after
 
 
 async def get_rate(session: AsyncSession, default: float | Decimal) -> Decimal:
@@ -29,3 +30,21 @@ async def set_rate(session: AsyncSession, value: Decimal | float | str) -> Decim
         row.value = str(rate)
     await session.commit()
     return rate
+
+
+async def get_sync_since(session: AsyncSession) -> str | None:
+    row = await session.get(AppSetting, SYNC_SINCE_KEY)
+    return row.value if row and row.value else None
+
+
+async def set_sync_since(session: AsyncSession, value: str | None) -> str | None:
+    row = await session.get(AppSetting, SYNC_SINCE_KEY)
+    if value:
+        if row is None:
+            session.add(AppSetting(key=SYNC_SINCE_KEY, value=value))
+        else:
+            row.value = value
+    elif row is not None:
+        await session.delete(row)
+    await session.commit()
+    return value

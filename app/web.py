@@ -31,7 +31,20 @@ from app.services.settlement import compute_positions, settle
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
 # bump to force browsers to re-fetch static CSS/JS after changes
-templates.env.globals["asset_v"] = "8"
+templates.env.globals["asset_v"] = "9"
+# Chinese labels for enum values shown in the UI
+templates.env.globals["ENTRY_LABELS"] = {
+    "TOPUP": "儲值", "PLAY": "投幣", "TRANSFER_IN": "轉入",
+    "TRANSFER_OUT": "轉出", "ADJUSTMENT": "調整",
+}
+templates.env.globals["KIND_LABELS"] = {"topup": "儲值", "pay": "消費"}
+templates.env.globals["ATTR_LABELS"] = {
+    "unattributed": "未歸戶", "attributed": "已歸戶", "ignored": "已忽略",
+}
+templates.env.globals["RUN_LABELS"] = {
+    "ok": "成功", "auth_failed": "認證失敗",
+    "transport_failed": "連線失敗", "partial": "部分失敗",
+}
 settings = get_settings()
 
 
@@ -217,12 +230,14 @@ async def admin_page(request: Request, session: AsyncSession = Depends(get_sessi
     )
     recon = await reconcile_report(session)
     rate = await config_service.get_rate(session, settings.default_rate_nt_per_point)
+    sync_since = await config_service.get_sync_since(session)
     return templates.TemplateResponse(
         request,
         "admin.html",
         {
             "member": member, "csrf": csrf, "unattributed": unattributed,
             "claims": claims, "members": members, "recon": recon, "rate": rate,
+            "sync_since": sync_since,
         },
     )
 

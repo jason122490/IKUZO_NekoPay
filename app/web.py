@@ -17,7 +17,7 @@ EDIT_WINDOW = timedelta(minutes=30)
 
 from app.config import get_settings
 from app.db import get_session
-from app.models.enums import AttributionStatus, ClaimStatus
+from app.models.enums import AttributionStatus, ClaimStatus, EntryType
 from app.models.ledger import AttributionClaim, LedgerEntry
 from app.models.real import AccountSnapshot, RealTransaction, SyncRun
 from app.models.user import Member
@@ -99,6 +99,25 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
     positions = await compute_positions(session, rate)
     txns = settle(positions)
     my_balance = await ledger_service.get_balance(session, member.id)
+
+    # daily consumption (points spent on PLAY), last 30 days, for the bar chart
+    spend_rows = (await session.execute(
+        select(
+            func.date(LedgerEntry.created_at),
+            func.coalesce(func.sum(-LedgerEntry.points_delta), 0),
+        )
+        .where(
+            LedgerEntry.member_id == member.id,
+            LedgerEntry.entry_type == EntryType.PLAY.value,
+        )
+        .group_by(func.date(LedgerEntry.created_at))
+        .order_by(func.date(LedgerEntry.created_at))
+    )).all()
+    spend_rows = spend_rows[-30:]
+    spend_labels = [str(r[0]) for r in spend_rows]
+    spend_values = [int(r[1]) for r in spend_rows]
+    total_spent = sum(spend_values)
+
     entries = list(
         (await session.execute(
             select(LedgerEntry).where(LedgerEntry.member_id == member.id)
@@ -137,7 +156,8 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
             "member": member, "csrf": csrf, "members": members,
             "positions": positions, "txns": txns, "rate": rate,
             "my_balance": my_balance, "recent_rows": recent_rows, "recon": recon,
-            "vip": vip,
+            "vip": vip, "spend_labels": spend_labels, "spend_values": spend_values,
+            "total_spent": total_spent,
         },
     )
 

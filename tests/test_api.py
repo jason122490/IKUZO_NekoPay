@@ -175,6 +175,22 @@ async def test_cookie_auto_login_without_credentials(ctx):
     await c2.aclose()
 
 
+async def test_member_cannot_act_for_others(ctx):
+    bob_c, csrf = await _login(ctx, "bob@nekopay.app", "secret1")
+    h = {"X-CSRF-Token": csrf}
+    adm = await _member_id(bob_c, "admin@nekopay.app")
+    # top up / play for someone else -> 403
+    assert (await bob_c.post("/api/topups", headers=h,
+            json={"member_id": adm, "points": 10})).status_code == 403
+    assert (await bob_c.post("/api/plays", headers=h,
+            json={"member_id": adm, "points": 10})).status_code == 403
+    # transfer FROM someone else -> 403
+    bob = await _member_id(bob_c, "bob@nekopay.app")
+    assert (await bob_c.post("/api/transfers", headers=h,
+            json={"from_member_id": adm, "to_member_id": bob, "points": 5})).status_code == 403
+    await bob_c.aclose()
+
+
 async def test_member_cannot_create_member(ctx):
     bob_c, csrf = await _login(ctx, "bob@nekopay.app", "secret1")
     r = await bob_c.post(

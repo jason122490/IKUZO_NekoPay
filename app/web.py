@@ -27,7 +27,7 @@ from app.vip import (
     next_tier as vip_next_tier,
 )
 from app.services.reconciliation import reconcile_report
-from app.services.settlement import compute_positions, settle
+from app.services.settlement import compute_positions
 
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
@@ -129,7 +129,6 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
     )).scalar_one_or_none()
     vip_bonus_pct = bonus_pct_for(snap.vip_name) if snap else 0
     positions = await compute_positions(session, rate)
-    txns = settle(positions)
     my_balance = await ledger_service.get_balance(session, member.id)
 
     # daily consumption (points spent on PLAY), last 30 days, for the bar chart
@@ -195,7 +194,7 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
         "dashboard.html",
         {
             "member": member, "csrf": csrf, "members": members,
-            "positions": positions, "txns": txns, "rate": rate,
+            "positions": positions, "rate": rate,
             "my_balance": my_balance, "recent_rows": recent_rows, "recon": recon,
             "spend_labels": spend_labels, "spend_values": spend_values,
             "total_spent": total_spent, "vip_bonus_pct": vip_bonus_pct,

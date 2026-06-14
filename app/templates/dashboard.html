@@ -146,7 +146,7 @@
   {% endif %}
 
   <section class="card wide">
-    <h2>成員餘額與分帳</h2>
+    <h2>成員餘額</h2>
     <table>
       <thead><tr><th>成員</th><th>餘額(點)</th><th>投入(NT$)</th><th>已消費(點)</th><th>淨額(NT$)</th></tr></thead>
       <tbody>
@@ -161,12 +161,6 @@
         {% endfor %}
       </tbody>
     </table>
-    <h3>結算建議（誰付給誰）</h3>
-    {% if txns %}
-      <ul class="settle">
-        {% for t in txns %}<li><b>{{ t.from_name }}</b> → <b>{{ t.to_name }}</b> ：NT$ {{ t.amount_nt }}</li>{% endfor %}
-      </ul>
-    {% else %}<p class="muted">目前無需結算 🎉</p>{% endif %}
   </section>
 
 </div>

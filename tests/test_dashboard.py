@@ -54,7 +54,7 @@ async def _login(transport, username):
 # match on section headers (the rate note also contains "儲值", so substrings
 # alone are ambiguous)
 ORDER = ["<h2>我的餘額 / 總消費", "<h2>投幣", "<h2>儲值", "<h2>轉點",
-         "<h2>我的近期紀錄", 'id="aa_toggle"', "<h2>成員餘額與分帳"]
+         "<h2>我的近期紀錄", 'id="aa_toggle"', "<h2>成員餘額"]
 
 
 def _assert_order(html: str):
@@ -104,5 +104,7 @@ async def test_admin_dashboard_renders_with_recon(ctx):
     assert r.status_code == 200
     _assert_order(r.text)
     # admin-only reconciliation card sits between 自動歸戶 and 成員餘額
-    assert r.text.find("<h2>對帳（管理員）") < r.text.find("<h2>成員餘額與分帳")
+    assert r.text.find("<h2>對帳（管理員）") < r.text.find("<h2>成員餘額")
+    # settlement suggestions removed (no debt scenario)
+    assert "結算建議" not in r.text
     await admin.aclose()

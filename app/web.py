@@ -31,7 +31,7 @@ from app.services.settlement import compute_positions, settle
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
 # bump to force browsers to re-fetch static CSS/JS after changes
-templates.env.globals["asset_v"] = "10"
+templates.env.globals["asset_v"] = "11"
 # Chinese labels for enum values shown in the UI
 templates.env.globals["ENTRY_LABELS"] = {
     "TOPUP": "儲值", "PLAY": "投幣", "TRANSFER_IN": "轉入",
@@ -73,11 +73,11 @@ async def login_page(request: Request):
 @router.post("/login", response_class=HTMLResponse)
 async def login_submit(
     request: Request,
-    email: str = Form(...),
+    username: str = Form(...),
     password: str = Form(...),
     session: AsyncSession = Depends(get_session),
 ):
-    member = await auth_service.authenticate(session, email, password)
+    member = await auth_service.authenticate(session, username, password)
     if member is None:
         return templates.TemplateResponse(
             request, "login.html", {"error": "帳號或密碼錯誤"}, status_code=401

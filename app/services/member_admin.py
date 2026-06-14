@@ -32,10 +32,12 @@ async def _require(session: AsyncSession, member_id: int) -> Member:
     return m
 
 
-async def _email_taken(
-    session: AsyncSession, email: str, exclude_id: int | None = None
+async def _username_taken(
+    session: AsyncSession, username: str, exclude_id: int | None = None
 ) -> bool:
-    stmt = select(Member.id).where(func.lower(Member.email) == email.strip().lower())
+    stmt = select(Member.id).where(
+        func.lower(Member.username) == username.strip().lower()
+    )
     if exclude_id is not None:
         stmt = stmt.where(Member.id != exclude_id)
     return (await session.execute(stmt.limit(1))).scalar_one_or_none() is not None
@@ -56,20 +58,23 @@ async def create_member(
     session: AsyncSession,
     *,
     actor_id: int,
-    email: str,
+    username: str,
     display_name: str,
     password: str,
     role: str = "member",
 ) -> Member:
     name = display_name.strip()
+    uname = username.strip()
     if not name:
         raise ValidationError("暱稱不可空白")
-    if await _email_taken(session, email):
-        raise ConflictError("Email 已被使用")
+    if not uname:
+        raise ValidationError("使用者名稱不可空白")
+    if await _username_taken(session, uname):
+        raise ConflictError("使用者名稱已被使用")
     if await _name_taken(session, name):
         raise ConflictError("暱稱已被使用")
     member = Member(
-        email=email.lower(),
+        username=uname,
         display_name=name,
         password_hash=hash_password(password),  # validates length
         role=_norm_role(role),
@@ -79,11 +84,11 @@ async def create_member(
         await session.flush()
     except IntegrityError:
         await session.rollback()
-        raise ConflictError("Email 或暱稱已被使用")
+        raise ConflictError("使用者名稱或暱稱已被使用")
     await audit_service.record(
         session, actor_id=actor_id, action="member.create",
         target_type="member", target_id=member.id,
-        detail={"email": member.email, "role": member.role},
+        detail={"username": member.username, "role": member.role},
     )
     await session.commit()
     await session.refresh(member)
@@ -262,7 +267,7 @@ async def delete_member(
         actor_id=actor_id,
         action=("member.force_delete" if force and refs else "member.delete"),
         target_type="member", target_id=member_id,
-        detail={"email": member.email, "display_name": member.display_name,
+        detail={"username": member.username, "display_name": member.display_name,
                 "purged_refs": refs},
     )
     await session.delete(member)

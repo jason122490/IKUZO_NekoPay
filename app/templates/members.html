@@ -5,7 +5,7 @@
 
   <section class="card">
     <h2>新增帳號</h2>
-    <label>信箱<input id="nm_email" type="email" placeholder="user@example.com"></label>
+    <label>使用者名稱<input id="nm_username" type="text" placeholder="登入帳號"></label>
     <label>暱稱<input id="nm_name" type="text" placeholder="顯示名稱"></label>
     <label>初始密碼<input id="nm_pwd" type="text" placeholder="至少 6 碼"></label>
     <label>角色
@@ -17,12 +17,12 @@
   <section class="card wide">
     <h2>所有成員（{{ rows|length }}）</h2>
     <table>
-      <thead><tr><th>暱稱</th><th>信箱</th><th>角色</th><th>狀態</th><th>餘額(點)</th><th>投入(NT$)</th><th>操作</th></tr></thead>
+      <thead><tr><th>暱稱</th><th>使用者名稱</th><th>角色</th><th>狀態</th><th>餘額(點)</th><th>投入(NT$)</th><th>操作</th></tr></thead>
       <tbody>
         {% for r in rows %}
         <tr class="{{ '' if r.m.is_active else 'inactive' }}">
           <td><a href="/admin/members/{{ r.m.id }}">{{ r.m.display_name }}</a></td>
-          <td class="muted">{{ r.m.email }}</td>
+          <td class="muted">{{ r.m.username }}</td>
           <td>
             <select id="role_{{ r.m.id }}" onchange="changeRole({{ r.m.id }})" {% if r.m.id==member.id %}disabled title="不能改自己的角色"{% endif %}>
               <option value="member" {% if r.m.role=='member' %}selected{% endif %}>member</option>

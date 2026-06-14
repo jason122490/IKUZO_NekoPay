@@ -42,13 +42,13 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["300/minute"])
 
 
 async def _bootstrap_admin() -> None:
-    if not (settings.admin_bootstrap_email and settings.admin_bootstrap_password):
+    if not (settings.admin_bootstrap_username and settings.admin_bootstrap_password):
         return
     async with SessionLocal() as s:
         exists = (
             await s.execute(
                 select(Member).where(
-                    Member.email == settings.admin_bootstrap_email.lower()
+                    Member.username == settings.admin_bootstrap_username
                 )
             )
         ).scalar_one_or_none()
@@ -56,14 +56,14 @@ async def _bootstrap_admin() -> None:
             return
         s.add(
             Member(
-                email=settings.admin_bootstrap_email.lower(),
+                username=settings.admin_bootstrap_username,
                 display_name="Admin",
                 password_hash=hash_password(settings.admin_bootstrap_password),
                 role="admin",
             )
         )
         await s.commit()
-        log.info("bootstrapped admin %s", settings.admin_bootstrap_email)
+        log.info("bootstrapped admin %s", settings.admin_bootstrap_username)
 
 
 @asynccontextmanager

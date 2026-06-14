@@ -4,7 +4,7 @@
 <div class="grid">
   <section class="card wide">
     <p><a href="/admin/members">← 回成員管理</a></p>
-    <h2>{{ target.display_name }} <span class="muted">{{ target.email }} · {{ target.role }} ·
+    <h2>{{ target.display_name }} <span class="muted">{{ target.username }} · {{ target.role }} ·
       {% if target.is_active %}<span class="pos">啟用</span>{% else %}<span class="neg">停用</span>{% endif %}</span></h2>
     <p class="big">{{ balance }} 點</p>
     <p class="muted">投入 NT$ {{ money }}</p>

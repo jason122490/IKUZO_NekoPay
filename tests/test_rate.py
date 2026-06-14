@@ -36,24 +36,24 @@ async def ctx():
 
     application.dependency_overrides[get_session] = _override
     async with maker() as s:
-        s.add(Member(email="admin@nekopay.app", display_name="Admin",
+        s.add(Member(username="admin@nekopay.app", display_name="Admin",
                      password_hash=hash_password("secret1"), role="admin"))
-        s.add(Member(email="bob@nekopay.app", display_name="Bob",
+        s.add(Member(username="bob@nekopay.app", display_name="Bob",
                      password_hash=hash_password("secret1"), role="member"))
         await s.commit()
     yield ASGITransport(app=application), maker
     await engine.dispose()
 
 
-async def _login(transport, email):
+async def _login(transport, username):
     c = httpx.AsyncClient(transport=transport, base_url="http://t")
-    r = await c.post("/api/auth/login", json={"email": email, "password": "secret1"})
+    r = await c.post("/api/auth/login", json={"username": username, "password": "secret1"})
     return c, {"X-CSRF-Token": r.json()["csrf_token"]}
 
 
-async def _id(c, email):
+async def _id(c, username):
     return next(m["id"] for m in (await c.get("/api/members")).json()
-               if m["email"] == email)
+               if m["username"] == username)
 
 
 async def _seed_tier(maker, vip_name):

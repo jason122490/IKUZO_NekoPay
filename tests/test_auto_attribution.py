@@ -49,9 +49,9 @@ async def ctx():
 
     application.dependency_overrides[get_session] = _override
     async with maker() as s:
-        s.add(Member(email="admin@nekopay.app", display_name="Admin",
+        s.add(Member(username="admin@nekopay.app", display_name="Admin",
                      password_hash=hash_password("secret1"), role="admin"))
-        s.add(Member(email="bob@nekopay.app", display_name="Bob",
+        s.add(Member(username="bob@nekopay.app", display_name="Bob",
                      password_hash=hash_password("secret1"), role="member"))
         s.add_all([
             _rt("pay", -3, "竹喵店 - Chunithm", "k1"),
@@ -64,9 +64,9 @@ async def ctx():
     await engine.dispose()
 
 
-async def _login(transport, email="bob@nekopay.app", password="secret1"):
+async def _login(transport, username="bob@nekopay.app", password="secret1"):
     c = httpx.AsyncClient(transport=transport, base_url="http://t")
-    r = await c.post("/api/auth/login", json={"email": email, "password": password})
+    r = await c.post("/api/auth/login", json={"username": username, "password": password})
     assert r.status_code == 200, r.text
     return c, {"X-CSRF-Token": r.json()["csrf_token"]}
 
@@ -112,7 +112,7 @@ async def test_self_attribute_topup_uses_member_money(ctx):
     transport, _ = ctx
     c, h = await _login(transport)
     bob = next(m["id"] for m in (await c.get("/api/members")).json()
-               if m["email"] == "bob@nekopay.app")
+               if m["username"] == "bob@nekopay.app")
     cand = (await c.post("/api/attribution/match", headers=h,
                          json={"kind": "topup", "points": 33})).json()["candidates"][0]
     r = await c.post(f"/api/attribution/self/{cand['id']}", headers=h,

@@ -6,7 +6,7 @@
   <p class="muted">登入以管理你的儲值與用量</p>
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
   <form method="post" action="/login">
-    <label>信箱<input type="email" name="email" required autofocus></label>
+    <label>使用者名稱<input type="text" name="username" required autofocus></label>
     <label>密碼<input type="password" name="password" required></label>
     <button type="submit" class="primary">登入</button>
   </form>

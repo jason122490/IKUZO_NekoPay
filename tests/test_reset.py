@@ -43,8 +43,8 @@ async def fk_session():
 
 async def test_reset_database_is_fk_safe(fk_session):
     s, maker = fk_session
-    admin = Member(email="a@x.com", display_name="A", password_hash="x", role="admin")
-    bob = Member(email="b@x.com", display_name="B", password_hash="x", role="member")
+    admin = Member(username="a@x.com", display_name="A", password_hash="x", role="admin")
+    bob = Member(username="b@x.com", display_name="B", password_hash="x", role="member")
     s.add_all([admin, bob])
     await s.commit()
 

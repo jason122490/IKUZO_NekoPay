@@ -210,7 +210,7 @@ async def reset_database(
     session: AsyncSession = Depends(get_session),
 ) -> MessageOut:
     # re-authenticate the acting admin before this irreversible wipe
-    confirmed = await authenticate(session, admin.email, payload.password)
+    confirmed = await authenticate(session, admin.username, payload.password)
     if confirmed is None or confirmed.id != admin.id:
         raise HTTPException(status_code=403, detail="密碼錯誤")
     await member_admin.reset_database(session, keep_member_id=admin.id)

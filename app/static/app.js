@@ -200,9 +200,9 @@ async function resetDatabase() {
 
 // ---- member management (admin) ----
 async function addMember() {
-  const email = val("nm_email"), name = val("nm_name"), pwd = val("nm_pwd"), role = val("nm_role");
-  if (!email || !name || !pwd) { alert("請填 Email、暱稱、密碼"); return; }
-  if (await NK.post("/api/members", { email, display_name: name, password: pwd, role })) NK.reload();
+  const username = val("nm_username"), name = val("nm_name"), pwd = val("nm_pwd"), role = val("nm_role");
+  if (!username || !name || !pwd) { alert("請填使用者名稱、暱稱、密碼"); return; }
+  if (await NK.post("/api/members", { username, display_name: name, password: pwd, role })) NK.reload();
 }
 async function changeRole(id) {
   const role = val("role_" + id);

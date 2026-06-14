@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     vip_event_key: str = "2009"
 
     # Bootstrap admin
-    admin_bootstrap_email: str = ""
+    admin_bootstrap_username: str = ""
     admin_bootstrap_password: str = ""
 
     # Sessions / cookies

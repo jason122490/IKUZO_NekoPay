@@ -40,7 +40,7 @@ async def ctx():
     async with maker() as s:
         s.add(
             Member(
-                email="admin@nekopay.app",
+                username="admin@nekopay.app",
                 display_name="Admin",
                 password_hash=hash_password("secret1"),
                 role="admin",
@@ -48,7 +48,7 @@ async def ctx():
         )
         s.add(
             Member(
-                email="bob@nekopay.app",
+                username="bob@nekopay.app",
                 display_name="Bob",
                 password_hash=hash_password("secret1"),
                 role="member",
@@ -60,16 +60,16 @@ async def ctx():
     await engine.dispose()
 
 
-async def _login(transport, email, password):
+async def _login(transport, username, password):
     c = httpx.AsyncClient(transport=transport, base_url="http://t")
-    r = await c.post("/api/auth/login", json={"email": email, "password": password})
+    r = await c.post("/api/auth/login", json={"username": username, "password": password})
     assert r.status_code == 200, r.text
     return c, r.json()["csrf_token"]
 
 
-async def _member_id(client, email):
+async def _member_id(client, username):
     members = (await client.get("/api/members")).json()
-    return next(m["id"] for m in members if m["email"] == email)
+    return next(m["id"] for m in members if m["username"] == username)
 
 
 async def test_login_me_and_unauth(ctx):
@@ -101,7 +101,7 @@ async def test_four_actions_flow(ctx):
     # create a new member (創建帳號)
     r = await admin.post(
         "/api/members",
-        json={"email": "carol@nekopay.app", "display_name": "Carol", "password": "secret1"},
+        json={"username": "carol@nekopay.app", "display_name": "Carol", "password": "secret1"},
         headers=h,
     )
     assert r.status_code == 200, r.text
@@ -152,7 +152,7 @@ async def test_member_cannot_read_other_ledger_idor(ctx):
 async def test_login_sets_persistent_httponly_cookie(ctx):
     c = httpx.AsyncClient(transport=ctx, base_url="http://t")
     r = await c.post("/api/auth/login",
-                     json={"email": "admin@nekopay.app", "password": "secret1"})
+                     json={"username": "admin@nekopay.app", "password": "secret1"})
     assert r.status_code == 200
     set_cookie = "; ".join(r.headers.get_list("set-cookie")).lower()
     assert "max-age=" in set_cookie  # persistent (survives browser restart)
@@ -164,7 +164,7 @@ async def test_cookie_auto_login_without_credentials(ctx):
     # log in once, capture the cookie
     c1 = httpx.AsyncClient(transport=ctx, base_url="http://t")
     r = await c1.post("/api/auth/login",
-                      json={"email": "admin@nekopay.app", "password": "secret1"})
+                      json={"username": "admin@nekopay.app", "password": "secret1"})
     token = r.cookies.get("nekopay_session")
     assert token
     await c1.aclose()
@@ -195,7 +195,7 @@ async def test_member_cannot_create_member(ctx):
     bob_c, csrf = await _login(ctx, "bob@nekopay.app", "secret1")
     r = await bob_c.post(
         "/api/members",
-        json={"email": "x@nekopay.app", "display_name": "X", "password": "secret1"},
+        json={"username": "x@nekopay.app", "display_name": "X", "password": "secret1"},
         headers={"X-CSRF-Token": csrf},
     )
     assert r.status_code == 403  # admin only

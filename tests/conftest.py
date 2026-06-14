@@ -33,7 +33,7 @@ async def session():
 async def create_member(session):
     async def _make(name: str, *, role: str = "member") -> Member:
         m = Member(
-            email=f"{name}@test.local",
+            username=f"{name}@test.local",
             display_name=name,
             password_hash="x",
             role=role,

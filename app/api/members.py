@@ -38,7 +38,7 @@ async def create_member(
     member = await member_admin.create_member(
         session,
         actor_id=admin.id,
-        email=payload.email,
+        username=payload.username,
         display_name=payload.display_name,
         password=payload.password,
         role=payload.role,

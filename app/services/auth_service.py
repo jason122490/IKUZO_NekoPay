@@ -5,7 +5,7 @@ import secrets
 from datetime import timedelta
 
 from passlib.context import CryptContext
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import UserSession
@@ -30,10 +30,12 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 async def authenticate(
-    session: AsyncSession, email: str, password: str
+    session: AsyncSession, username: str, password: str
 ) -> Member | None:
     member = (
-        await session.execute(select(Member).where(Member.email == email.lower()))
+        await session.execute(
+            select(Member).where(func.lower(Member.username) == username.strip().lower())
+        )
     ).scalar_one_or_none()
     if member is None or not member.is_active:
         return None

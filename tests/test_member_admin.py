@@ -37,37 +37,37 @@ async def ctx():
 
     application.dependency_overrides[get_session] = _override
     async with maker() as s:
-        s.add(Member(email="admin@nekopay.app", display_name="Admin",
+        s.add(Member(username="admin@nekopay.app", display_name="Admin",
                      password_hash=hash_password("secret1"), role="admin"))
-        s.add(Member(email="bob@nekopay.app", display_name="Bob",
+        s.add(Member(username="bob@nekopay.app", display_name="Bob",
                      password_hash=hash_password("secret1"), role="member"))
         await s.commit()
     yield ASGITransport(app=application)
     await engine.dispose()
 
 
-async def _login(transport, email, password):
+async def _login(transport, username, password):
     c = httpx.AsyncClient(transport=transport, base_url="http://t")
-    r = await c.post("/api/auth/login", json={"email": email, "password": password})
+    r = await c.post("/api/auth/login", json={"username": username, "password": password})
     assert r.status_code == 200, r.text
     return c, r.json()["csrf_token"]
 
 
-async def _id(client, email):
+async def _id(client, username):
     members = (await client.get("/api/members")).json()
-    return next(m["id"] for m in members if m["email"] == email)
+    return next(m["id"] for m in members if m["username"] == username)
 
 
 async def test_admin_creates_account(ctx):
     admin, csrf = await _login(ctx, "admin@nekopay.app", "secret1")
     h = {"X-CSRF-Token": csrf}
     r = await admin.post("/api/members", headers=h, json={
-        "email": "carol@nekopay.app", "display_name": "Carol",
+        "username": "carol@nekopay.app", "display_name": "Carol",
         "password": "secret1", "role": "member"})
     assert r.status_code == 200 and r.json()["display_name"] == "Carol"
-    # duplicate email -> 409
+    # duplicate username -> 409
     r = await admin.post("/api/members", headers=h, json={
-        "email": "carol@nekopay.app", "display_name": "Dup", "password": "secret1"})
+        "username": "carol@nekopay.app", "display_name": "Dup", "password": "secret1"})
     assert r.status_code == 409
     await admin.aclose()
 
@@ -77,7 +77,7 @@ async def test_cannot_create_duplicate_display_name(ctx):
     h = {"X-CSRF-Token": csrf}
     # "Bob" already exists -> duplicate name (case-insensitive) rejected
     r = await admin.post("/api/members", headers=h, json={
-        "email": "bob2@nekopay.app", "display_name": "bob", "password": "secret1"})
+        "username": "bob2@nekopay.app", "display_name": "bob", "password": "secret1"})
     assert r.status_code == 409
     await admin.aclose()
 
@@ -141,7 +141,7 @@ async def test_disable_revokes_sessions_and_blocks_login(ctx):
     # and he can no longer log in
     fresh = httpx.AsyncClient(transport=ctx, base_url="http://t")
     assert (await fresh.post("/api/auth/login",
-            json={"email": "bob@nekopay.app", "password": "secret1"})).status_code == 401
+            json={"username": "bob@nekopay.app", "password": "secret1"})).status_code == 401
     await admin.aclose(); await bob_c.aclose(); await fresh.aclose()
 
 
@@ -154,9 +154,9 @@ async def test_admin_reset_password(ctx):
     # old password fails, new works
     c1 = httpx.AsyncClient(transport=ctx, base_url="http://t")
     assert (await c1.post("/api/auth/login",
-            json={"email": "bob@nekopay.app", "password": "secret1"})).status_code == 401
+            json={"username": "bob@nekopay.app", "password": "secret1"})).status_code == 401
     assert (await c1.post("/api/auth/login",
-            json={"email": "bob@nekopay.app", "password": "newpass1"})).status_code == 200
+            json={"username": "bob@nekopay.app", "password": "newpass1"})).status_code == 200
     await admin.aclose(); await c1.aclose()
 
 
@@ -165,12 +165,12 @@ async def test_delete_account_with_no_history(ctx):
     h = {"X-CSRF-Token": csrf}
     # create a fresh account with no transactions, then delete it
     await admin.post("/api/members", headers=h, json={
-        "email": "temp@nekopay.app", "display_name": "Temp", "password": "secret1"})
+        "username": "temp@nekopay.app", "display_name": "Temp", "password": "secret1"})
     temp = await _id(admin, "temp@nekopay.app")
     r = await admin.request("DELETE", f"/api/members/{temp}", headers=h)
     assert r.status_code == 200, r.text
     # gone from the list
-    emails = [m["email"] for m in (await admin.get("/api/members")).json()]
+    emails = [m["username"] for m in (await admin.get("/api/members")).json()]
     assert "temp@nekopay.app" not in emails
     await admin.aclose()
 

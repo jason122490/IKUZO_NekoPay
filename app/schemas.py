@@ -4,17 +4,17 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ---------------- auth / members ----------------
 class LoginIn(BaseModel):
-    email: EmailStr
+    username: str
     password: str
 
 
 class MemberCreateIn(BaseModel):
-    email: EmailStr
+    username: str = Field(min_length=1, max_length=255)
     display_name: str = Field(min_length=1, max_length=100)
     password: str = Field(min_length=6)
     role: str = "member"
@@ -23,7 +23,7 @@ class MemberCreateIn(BaseModel):
 class MemberOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    email: str
+    username: str
     display_name: str
     role: str
     is_active: bool

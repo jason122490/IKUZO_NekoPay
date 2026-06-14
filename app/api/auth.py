@@ -32,9 +32,9 @@ async def login(
     response: Response,
     session: AsyncSession = Depends(get_session),
 ) -> LoginOut:
-    member = await auth_service.authenticate(session, payload.email, payload.password)
+    member = await auth_service.authenticate(session, payload.username, payload.password)
     if member is None:
-        raise HTTPException(status_code=401, detail="invalid email or password")
+        raise HTTPException(status_code=401, detail="使用者名稱或密碼錯誤")
     us = await auth_service.create_session(
         session, member.id, settings.session_ttl_hours
     )

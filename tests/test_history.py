@@ -37,9 +37,9 @@ async def ctx():
 
     application.dependency_overrides[get_session] = _override
     async with maker() as s:
-        s.add(Member(email="admin@nekopay.app", display_name="Admin",
+        s.add(Member(username="admin@nekopay.app", display_name="Admin",
                      password_hash=hash_password("secret1"), role="admin"))
-        s.add(Member(email="bob@nekopay.app", display_name="Bob",
+        s.add(Member(username="bob@nekopay.app", display_name="Bob",
                      password_hash=hash_password("secret1"), role="member"))
         s.add(RealTransaction(
             kind="pay", shop="竹喵店", machine="Chunithm", raw_name="竹喵店 - Chunithm",
@@ -51,9 +51,9 @@ async def ctx():
     await engine.dispose()
 
 
-async def _login(transport, email):
+async def _login(transport, username):
     c = httpx.AsyncClient(transport=transport, base_url="http://t")
-    await c.post("/api/auth/login", json={"email": email, "password": "secret1"})
+    await c.post("/api/auth/login", json={"username": username, "password": "secret1"})
     return c
 
 

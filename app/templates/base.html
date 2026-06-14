@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}NekoPay 帳本{% endblock %}</title>
+  <title>{% block title %}IKUZO✝NekoPay{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css?v={{ asset_v }}">
   <script>window.CSRF = "{{ csrf|default('') }}";</script>
 </head>
 <body>
   <header class="nav">
-    <a href="/dashboard" class="brand">🐾 NekoPay 帳本</a>
+    <a href="/dashboard" class="brand">IKUZO✝NekoPay</a>
     <nav>
       {% if member %}
         <span class="who">{{ member.display_name }}{% if member.role == 'admin' %} · 管理員{% endif %}</span>

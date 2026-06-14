@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ target.display_name }} · 成員紀錄{% endblock %}
+{% block content %}
+<div class="grid">
+  <section class="card wide">
+    <p><a href="/admin/members">← 回成員管理</a></p>
+    <h2>{{ target.display_name }} <span class="muted">{{ target.email }} · {{ target.role }} ·
+      {% if target.is_active %}<span class="pos">啟用</span>{% else %}<span class="neg">停用</span>{% endif %}</span></h2>
+    <p class="big">{{ balance }} 點</p>
+    <p class="muted">投入 NT$ {{ money }}</p>
+  </section>
+
+  <section class="card wide">
+    <h2>完整帳本紀錄（最近 {{ entries|length }} 筆）</h2>
+    <table>
+      <thead><tr><th>時間</th><th>類型</th><th>點數</th><th>NT$</th><th>備註</th><th>來源</th></tr></thead>
+      <tbody>
+        {% for e in entries %}
+        <tr>
+          <td>{{ e.created_at.strftime('%Y/%m/%d %H:%M') }}</td>
+          <td>{{ e.entry_type }}</td>
+          <td class="{{ 'pos' if e.points_delta >= 0 else 'neg' }}">{{ e.points_delta }}</td>
+          <td>{{ e.money_nt if e.money_nt is not none else '' }}</td>
+          <td>{{ e.note or '' }}</td>
+          <td class="muted">{% if e.source_real_txn_id %}真實#{{ e.source_real_txn_id }}{% elif e.transfer_group_id %}轉點{% else %}手動{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

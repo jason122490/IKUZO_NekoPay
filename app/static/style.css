@@ -32,4 +32,6 @@ th { color:var(--muted); font-weight:600; }
 .pos { color:var(--pos); } .neg { color:var(--neg); }
 .settle { list-style:none; padding:0; }
 .settle li { padding:8px 0; border-bottom:1px solid var(--line); }
+tr.inactive { opacity:.45; }
+.actions a, .actions button { margin-right:8px; }
 @media (max-width:720px){ .grid { grid-template-columns:1fr; } }

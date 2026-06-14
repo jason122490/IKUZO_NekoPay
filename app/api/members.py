@@ -3,16 +3,23 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
 from app.models.ledger import LedgerEntry
 from app.models.user import Member
-from app.schemas import BalanceOut, LedgerEntryOut, MemberCreateIn, MemberOut
+from app.schemas import (
+    BalanceOut,
+    LedgerEntryOut,
+    MemberCreateIn,
+    MemberOut,
+    MemberUpdateIn,
+    MessageOut,
+    ResetPasswordIn,
+    StatusIn,
+)
 from app.security import get_current_member, require_admin, verify_csrf
-from app.services import ledger_service
-from app.services.auth_service import hash_password
+from app.services import ledger_service, member_admin
 
 router = APIRouter(prefix="/api/members", tags=["members"])
 
@@ -22,28 +29,72 @@ def _ensure_self_or_admin(viewer: Member, member_id: int) -> None:
         raise HTTPException(status_code=403, detail="forbidden")
 
 
-@router.post(
-    "", response_model=MemberOut, dependencies=[Depends(verify_csrf)]
-)
+@router.post("", response_model=MemberOut, dependencies=[Depends(verify_csrf)])
 async def create_member(
     payload: MemberCreateIn,
-    _admin: Member = Depends(require_admin),
+    admin: Member = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ) -> MemberOut:
-    member = Member(
-        email=payload.email.lower(),
+    member = await member_admin.create_member(
+        session,
+        actor_id=admin.id,
+        email=payload.email,
         display_name=payload.display_name,
-        password_hash=hash_password(payload.password),
-        role=("admin" if payload.role == "admin" else "member"),
+        password=payload.password,
+        role=payload.role,
     )
-    session.add(member)
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
-        raise HTTPException(status_code=409, detail="email already registered")
-    await session.refresh(member)
     return MemberOut.model_validate(member)
+
+
+@router.post(
+    "/{member_id}/update", response_model=MemberOut, dependencies=[Depends(verify_csrf)]
+)
+async def update_member(
+    member_id: int,
+    payload: MemberUpdateIn,
+    admin: Member = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+) -> MemberOut:
+    member = await member_admin.update_member(
+        session,
+        actor_id=admin.id,
+        member_id=member_id,
+        display_name=payload.display_name,
+        role=payload.role,
+    )
+    return MemberOut.model_validate(member)
+
+
+@router.post(
+    "/{member_id}/status", response_model=MemberOut, dependencies=[Depends(verify_csrf)]
+)
+async def set_member_status(
+    member_id: int,
+    payload: StatusIn,
+    admin: Member = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+) -> MemberOut:
+    member = await member_admin.set_active(
+        session, actor_id=admin.id, member_id=member_id, is_active=payload.is_active
+    )
+    return MemberOut.model_validate(member)
+
+
+@router.post(
+    "/{member_id}/reset-password",
+    response_model=MessageOut,
+    dependencies=[Depends(verify_csrf)],
+)
+async def reset_member_password(
+    member_id: int,
+    payload: ResetPasswordIn,
+    admin: Member = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+) -> MessageOut:
+    await member_admin.reset_password(
+        session, actor_id=admin.id, member_id=member_id, new_password=payload.new_password
+    )
+    return MessageOut(detail="password reset")
 
 
 @router.get("", response_model=list[MemberOut])

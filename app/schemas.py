@@ -29,6 +29,19 @@ class MemberOut(BaseModel):
     is_active: bool
 
 
+class MemberUpdateIn(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=100)
+    role: str | None = None
+
+
+class StatusIn(BaseModel):
+    is_active: bool
+
+
+class ResetPasswordIn(BaseModel):
+    new_password: str = Field(min_length=6)
+
+
 class LoginOut(BaseModel):
     member: MemberOut
     csrf_token: str

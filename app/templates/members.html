@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}成員管理 · NekoPay 帳本{% endblock %}
+{% block content %}
+<div class="grid">
+
+  <section class="card">
+    <h2>新增帳號</h2>
+    <label>Email<input id="nm_email" type="email" placeholder="user@example.com"></label>
+    <label>暱稱<input id="nm_name" type="text" placeholder="顯示名稱"></label>
+    <label>初始密碼<input id="nm_pwd" type="text" placeholder="至少 6 碼"></label>
+    <label>角色
+      <select id="nm_role"><option value="member">member</option><option value="admin">admin</option></select>
+    </label>
+    <button class="primary" onclick="addMember()">建立帳號</button>
+  </section>
+
+  <section class="card wide">
+    <h2>所有成員（{{ rows|length }}）</h2>
+    <table>
+      <thead><tr><th>暱稱</th><th>Email</th><th>角色</th><th>狀態</th><th>餘額(點)</th><th>投入(NT$)</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="{{ '' if r.m.is_active else 'inactive' }}">
+          <td><a href="/admin/members/{{ r.m.id }}">{{ r.m.display_name }}</a></td>
+          <td class="muted">{{ r.m.email }}</td>
+          <td>
+            <select id="role_{{ r.m.id }}" onchange="changeRole({{ r.m.id }})" {% if r.m.id==member.id %}disabled title="不能改自己的角色"{% endif %}>
+              <option value="member" {% if r.m.role=='member' %}selected{% endif %}>member</option>
+              <option value="admin" {% if r.m.role=='admin' %}selected{% endif %}>admin</option>
+            </select>
+          </td>
+          <td>{% if r.m.is_active %}<span class="pos">啟用</span>{% else %}<span class="neg">停用</span>{% endif %}</td>
+          <td>{{ r.balance }}</td>
+          <td>{{ r.money }}</td>
+          <td class="actions">
+            <a href="/admin/members/{{ r.m.id }}">紀錄</a>
+            {% if r.m.id != member.id %}
+              {% if r.m.is_active %}
+                <button class="link" onclick="setActive({{ r.m.id }}, false)">停用</button>
+              {% else %}
+                <button class="link" onclick="setActive({{ r.m.id }}, true)">啟用</button>
+              {% endif %}
+            {% endif %}
+            <button class="link" onclick="resetPwd({{ r.m.id }})">重設密碼</button>
+            <button class="link" onclick="renameMember({{ r.m.id }})">改暱稱</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted">點暱稱可檢視該成員的完整帳本紀錄。停用會立即登出該成員；重設密碼會強制其重新登入。</p>
+  </section>
+
+</div>
+{% endblock %}

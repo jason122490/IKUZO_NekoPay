@@ -13,8 +13,8 @@
     <nav>
       {% if member %}
         <span class="who">{{ member.display_name }}{% if member.role == 'admin' %} · 管理員{% endif %}</span>
-        {% if member.role == 'admin' %}<a href="/admin">管理</a>{% endif %}
         <a href="/dashboard">儀表板</a>
+        {% if member.role == 'admin' %}<a href="/admin">歸戶/對帳</a><a href="/admin/members">成員管理</a>{% endif %}
         <form method="post" action="/logout" class="inline"><button class="link">登出</button></form>
       {% endif %}
     </nav>

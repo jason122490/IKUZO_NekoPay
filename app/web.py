@@ -138,3 +138,51 @@ async def admin_page(request: Request, session: AsyncSession = Depends(get_sessi
             "claims": claims, "members": members, "recon": recon,
         },
     )
+
+
+@router.get("/admin/members", response_class=HTMLResponse)
+async def admin_members(request: Request, session: AsyncSession = Depends(get_session)):
+    member, csrf = await _current(request, session)
+    if member is None or member.role != "admin":
+        return RedirectResponse("/dashboard" if member else "/login", status_code=303)
+    rows = list(
+        (await session.execute(select(Member).order_by(Member.display_name))).scalars()
+    )
+    data = [
+        {
+            "m": m,
+            "balance": await ledger_service.get_balance(session, m.id),
+            "money": await ledger_service.get_money_contributed(session, m.id),
+        }
+        for m in rows
+    ]
+    return templates.TemplateResponse(
+        request, "members.html", {"member": member, "csrf": csrf, "rows": data}
+    )
+
+
+@router.get("/admin/members/{member_id}", response_class=HTMLResponse)
+async def admin_member_detail(
+    request: Request, member_id: int, session: AsyncSession = Depends(get_session)
+):
+    member, csrf = await _current(request, session)
+    if member is None or member.role != "admin":
+        return RedirectResponse("/dashboard" if member else "/login", status_code=303)
+    target = await session.get(Member, member_id)
+    if target is None:
+        return RedirectResponse("/admin/members", status_code=303)
+    entries = list(
+        (await session.execute(
+            select(LedgerEntry).where(LedgerEntry.member_id == member_id)
+            .order_by(LedgerEntry.created_at.desc()).limit(200)
+        )).scalars()
+    )
+    return templates.TemplateResponse(
+        request,
+        "member_detail.html",
+        {
+            "member": member, "csrf": csrf, "target": target, "entries": entries,
+            "balance": await ledger_service.get_balance(session, member_id),
+            "money": await ledger_service.get_money_contributed(session, member_id),
+        },
+    )

@@ -50,3 +50,28 @@ async function syncNow() {
   const r = await NK.post("/api/admin/sync/run-now", {});
   if (r) { alert("同步狀態：" + r.status + "，新增 " + r.rows_inserted + " 筆"); NK.reload(); }
 }
+
+// ---- member management (admin) ----
+async function addMember() {
+  const email = val("nm_email"), name = val("nm_name"), pwd = val("nm_pwd"), role = val("nm_role");
+  if (!email || !name || !pwd) { alert("請填 Email、暱稱、密碼"); return; }
+  if (await NK.post("/api/members", { email, display_name: name, password: pwd, role })) NK.reload();
+}
+async function changeRole(id) {
+  const role = val("role_" + id);
+  if (await NK.post(`/api/members/${id}/update`, { role })) NK.reload();
+}
+async function renameMember(id) {
+  const name = prompt("新的暱稱？"); if (!name) return;
+  if (await NK.post(`/api/members/${id}/update`, { display_name: name })) NK.reload();
+}
+async function setActive(id, active) {
+  if (!active && !confirm("確定停用此帳號？對方會立即被登出。")) return;
+  if (await NK.post(`/api/members/${id}/status`, { is_active: active })) NK.reload();
+}
+async function resetPwd(id) {
+  const pwd = prompt("輸入新密碼（至少 6 碼）："); if (!pwd) return;
+  if (await NK.post(`/api/members/${id}/reset-password`, { new_password: pwd })) {
+    alert("已重設，對方需用新密碼重新登入"); NK.reload();
+  }
+}

@@ -17,9 +17,10 @@ from app.config import get_settings
 from app.db import get_session
 from app.models.enums import AttributionStatus, ClaimStatus
 from app.models.ledger import AttributionClaim, LedgerEntry
-from app.models.real import RealTransaction
+from app.models.real import AccountSnapshot, RealTransaction
 from app.models.user import Member
 from app.services import auth_service, config_service, ledger_service
+from app.vip import VIP_TIERS, next_tier as vip_next_tier
 from app.services.reconciliation import reconcile_report
 from app.services.settlement import compute_positions, settle
 
@@ -113,6 +114,20 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
         for e in entries
     ]
     recon = await reconcile_report(session) if is_admin else None
+
+    snap = (await session.execute(
+        select(AccountSnapshot).order_by(AccountSnapshot.captured_at.desc()).limit(1)
+    )).scalar_one_or_none()
+    vip = None
+    if snap is not None and snap.vip_name:
+        nxt = vip_next_tier(snap.vip_name)
+        vip = {
+            "name": snap.vip_name,
+            "is_premium": snap.is_premium,
+            "next_value": snap.vip_next_value,
+            "next_name": nxt["name"] if nxt else None,
+        }
+
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -120,7 +135,23 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
             "member": member, "csrf": csrf, "members": members,
             "positions": positions, "txns": txns, "rate": rate,
             "my_balance": my_balance, "recent_rows": recent_rows, "recon": recon,
+            "vip": vip,
         },
+    )
+
+
+@router.get("/vip", response_class=HTMLResponse)
+async def vip_page(request: Request, session: AsyncSession = Depends(get_session)):
+    member, csrf = await _current(request, session)
+    if member is None:
+        return RedirectResponse("/login", status_code=303)
+    snap = (await session.execute(
+        select(AccountSnapshot).order_by(AccountSnapshot.captured_at.desc()).limit(1)
+    )).scalar_one_or_none()
+    current = snap.vip_name if snap else None
+    return templates.TemplateResponse(
+        request, "vip.html",
+        {"member": member, "csrf": csrf, "tiers": VIP_TIERS, "current": current},
     )
 
 

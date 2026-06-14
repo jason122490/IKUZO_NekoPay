@@ -80,6 +80,9 @@ async def run_sync_cycle(
                 card_id=info.get("cardId"),
                 status=str(info.get("status")) if info.get("status") is not None else None,
                 ticket_point=info.get("ticketPoint"),
+                vip_name=info.get("vipName"),
+                vip_next_value=info.get("vipNextValue"),
+                is_premium=info.get("isPremium"),
                 raw_json=json.dumps(info, ensure_ascii=False),
             )
         )

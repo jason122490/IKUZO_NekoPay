@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}VIP 等級 · NekoPay 帳本{% endblock %}
+{% block content %}
+<div class="grid">
+  <section class="card wide">
+    <h2>VIP 等級表 <span class="muted">（2026 上半年度 Premium）</span></h2>
+    {% if current %}<p class="muted">共用卡目前等級：<b>{{ current }}</b></p>{% endif %}
+    <table>
+      <thead>
+        <tr><th>等級</th><th>卡別</th><th>儲值回饋<br><span class="muted">單次滿$300</span></th>
+            <th>每月喵贈點</th><th>VIP POINT</th><th>升級門檻<br><span class="muted">累積儲值 NT$</span></th></tr>
+      </thead>
+      <tbody>
+        {% for t in tiers %}
+        <tr {% if t.name == current %}class="pos"{% endif %}>
+          <td><b>{{ t.name }}</b></td>
+          <td>{{ t.card }}</td>
+          <td>{{ t.bonus }}</td>
+          <td>{{ t.monthly_gift }} 點</td>
+          <td>{{ t.vip_point }} 點</td>
+          <td>{% if t.threshold == 0 %}申請即享{% else %}${{ "{:,}".format(t.threshold) }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted" style="margin-top:14px">
+      說明：累積週期每半年重新計算（2026/1/1~6/30），達升級條件由店家主動通知；
+      換卡後須使用 Premium 卡才享 Premium 優惠；店內保有變更權利。
+    </p>
+  </section>
+</div>
+{% endblock %}

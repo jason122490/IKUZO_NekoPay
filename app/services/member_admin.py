@@ -32,6 +32,26 @@ async def _require(session: AsyncSession, member_id: int) -> Member:
     return m
 
 
+async def _email_taken(
+    session: AsyncSession, email: str, exclude_id: int | None = None
+) -> bool:
+    stmt = select(Member.id).where(func.lower(Member.email) == email.strip().lower())
+    if exclude_id is not None:
+        stmt = stmt.where(Member.id != exclude_id)
+    return (await session.execute(stmt.limit(1))).scalar_one_or_none() is not None
+
+
+async def _name_taken(
+    session: AsyncSession, name: str, exclude_id: int | None = None
+) -> bool:
+    stmt = select(Member.id).where(
+        func.lower(Member.display_name) == name.strip().lower()
+    )
+    if exclude_id is not None:
+        stmt = stmt.where(Member.id != exclude_id)
+    return (await session.execute(stmt.limit(1))).scalar_one_or_none() is not None
+
+
 async def create_member(
     session: AsyncSession,
     *,
@@ -41,9 +61,16 @@ async def create_member(
     password: str,
     role: str = "member",
 ) -> Member:
+    name = display_name.strip()
+    if not name:
+        raise ValidationError("暱稱不可空白")
+    if await _email_taken(session, email):
+        raise ConflictError("Email 已被使用")
+    if await _name_taken(session, name):
+        raise ConflictError("暱稱已被使用")
     member = Member(
         email=email.lower(),
-        display_name=display_name,
+        display_name=name,
         password_hash=hash_password(password),  # validates length
         role=_norm_role(role),
     )
@@ -52,7 +79,7 @@ async def create_member(
         await session.flush()
     except IntegrityError:
         await session.rollback()
-        raise ConflictError("email already registered")
+        raise ConflictError("Email 或暱稱已被使用")
     await audit_service.record(
         session, actor_id=actor_id, action="member.create",
         target_type="member", target_id=member.id,
@@ -76,8 +103,13 @@ async def update_member(
         raise ValidationError("cannot change your own role")
     changes: dict = {}
     if display_name:
-        member.display_name = display_name
-        changes["display_name"] = display_name
+        name = display_name.strip()
+        if not name:
+            raise ValidationError("暱稱不可空白")
+        if await _name_taken(session, name, exclude_id=member_id):
+            raise ConflictError("暱稱已被使用")
+        member.display_name = name
+        changes["display_name"] = name
     if role is not None:
         member.role = _norm_role(role)
         changes["role"] = member.role

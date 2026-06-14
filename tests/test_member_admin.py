@@ -72,6 +72,31 @@ async def test_admin_creates_account(ctx):
     await admin.aclose()
 
 
+async def test_cannot_create_duplicate_display_name(ctx):
+    admin, csrf = await _login(ctx, "admin@nekopay.app", "secret1")
+    h = {"X-CSRF-Token": csrf}
+    # "Bob" already exists -> duplicate name (case-insensitive) rejected
+    r = await admin.post("/api/members", headers=h, json={
+        "email": "bob2@nekopay.app", "display_name": "bob", "password": "secret1"})
+    assert r.status_code == 409
+    await admin.aclose()
+
+
+async def test_cannot_rename_to_existing_name(ctx):
+    admin, csrf = await _login(ctx, "admin@nekopay.app", "secret1")
+    h = {"X-CSRF-Token": csrf}
+    bob = await _id(admin, "bob@nekopay.app")
+    # rename Bob -> "Admin" (taken) -> 409
+    r = await admin.post(f"/api/members/{bob}/update", headers=h,
+                         json={"display_name": "Admin"})
+    assert r.status_code == 409
+    # renaming to your own current name is fine (excludes self)
+    r2 = await admin.post(f"/api/members/{bob}/update", headers=h,
+                          json={"display_name": "Bob"})
+    assert r2.status_code == 200
+    await admin.aclose()
+
+
 async def test_admin_edit_role_and_rename(ctx):
     admin, csrf = await _login(ctx, "admin@nekopay.app", "secret1")
     h = {"X-CSRF-Token": csrf}

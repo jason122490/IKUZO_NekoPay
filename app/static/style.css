@@ -35,6 +35,7 @@ th { color:var(--muted); font-weight:600; }
 .settle li { padding:8px 0; border-bottom:1px solid var(--line); }
 tr.inactive { opacity:.45; }
 .actions a, .actions button { margin-right:8px; }
+.table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 .aa-bar { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
 .switch { display:inline-flex; align-items:center; gap:8px; margin:0; color:var(--ink); font-size:15px; }
 .switch input { width:auto; margin:0; }
@@ -45,4 +46,33 @@ tr.inactive { opacity:.45; }
 .cand-list { display:flex; flex-direction:column; gap:8px; margin:12px 0; }
 .cand { text-align:left; width:100%; }
 .modal-actions { display:flex; justify-content:space-between; margin-top:10px; }
-@media (max-width:720px){ .grid { grid-template-columns:1fr; } }
+@media (max-width:720px){
+  .grid { grid-template-columns:1fr; gap:12px; }
+  main { margin:16px auto; }
+
+  /* nav wraps: brand on top, links flow underneath */
+  .nav { padding:12px 14px; flex-wrap:wrap; }
+  .nav nav { width:100%; margin-top:6px; gap:16px; flex-wrap:wrap; row-gap:8px; }
+  .brand { font-size:17px; }
+
+  .card { padding:14px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .card.login { margin:6vh auto; }
+  .big { font-size:28px; }
+
+  /* 16px inputs stop iOS from zooming in on focus */
+  input, select { font-size:16px; }
+
+  /* primary action buttons span the card for easy tapping */
+  .card > button.primary { width:100%; }
+
+  /* wide tables scroll horizontally instead of squashing the layout */
+  .card table { white-space:nowrap; }
+  th, td { padding:8px; }
+
+  /* roomier tap targets for inline row actions */
+  .actions a, .actions button { display:inline-block; padding:6px 8px; margin:2px 6px 2px 0; }
+
+  .modal-overlay { padding:14px; }
+  .modal-actions { flex-direction:column; gap:8px; }
+  .modal-actions button { width:100%; }
+}

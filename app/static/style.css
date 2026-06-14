@@ -35,4 +35,14 @@ th { color:var(--muted); font-weight:600; }
 .settle li { padding:8px 0; border-bottom:1px solid var(--line); }
 tr.inactive { opacity:.45; }
 .actions a, .actions button { margin-right:8px; }
+.aa-bar { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.switch { display:inline-flex; align-items:center; gap:8px; margin:0; color:var(--ink); font-size:15px; }
+.switch input { width:auto; margin:0; }
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex;
+  align-items:center; justify-content:center; z-index:1000; }
+.modal { background:var(--card); border:1px solid var(--line); border-radius:14px;
+  padding:20px; width:min(92vw,520px); max-height:80vh; overflow:auto; }
+.cand-list { display:flex; flex-direction:column; gap:8px; margin:12px 0; }
+.cand { text-align:left; width:100%; }
+.modal-actions { display:flex; justify-content:space-between; margin-top:10px; }
 @media (max-width:720px){ .grid { grid-template-columns:1fr; } }

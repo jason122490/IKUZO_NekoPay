@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db import get_session
 from app.models.user import Member
-from app.schemas import LoginIn, LoginOut, MemberOut, MessageOut
-from app.security import get_current_member
+from app.schemas import AutoAttributeIn, LoginIn, LoginOut, MemberOut, MessageOut
+from app.security import get_current_member, verify_csrf
 from app.services import auth_service
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -57,4 +57,18 @@ async def logout(
 
 @router.get("/me", response_model=MemberOut)
 async def me(member: Member = Depends(get_current_member)) -> MemberOut:
+    return MemberOut.model_validate(member)
+
+
+@router.post(
+    "/auto-attribute", response_model=MemberOut, dependencies=[Depends(verify_csrf)]
+)
+async def set_auto_attribute(
+    payload: AutoAttributeIn,
+    member: Member = Depends(get_current_member),
+    session: AsyncSession = Depends(get_session),
+) -> MemberOut:
+    member.auto_attribute = payload.enabled
+    await session.commit()
+    await session.refresh(member)
     return MemberOut.model_validate(member)

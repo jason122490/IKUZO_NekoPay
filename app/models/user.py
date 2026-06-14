@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -20,6 +20,10 @@ class Member(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(16), default=Role.MEMBER.value)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # When True (default), 投幣/儲值 first try to match an unattributed real txn.
+    auto_attribute: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("1")
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     @property

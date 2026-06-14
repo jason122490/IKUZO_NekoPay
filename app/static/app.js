@@ -23,17 +23,67 @@ window.NK = {
 
 function val(id) { return document.getElementById(id).value; }
 
-async function doTopup() {
-  const ok = await NK.post("/api/topups", {
-    member_id: +val("tu_member"), points: +val("tu_points"), money_nt: val("tu_money"),
-  });
-  if (ok) NK.reload();
+// Returns a real_txn id (number), "manual", or "cancel".
+async function tryAutoAttribute(kind, points) {
+  const res = await NK.post("/api/attribution/match", { kind, points });
+  if (!res) return "cancel";                 // request failed (already alerted)
+  if (!res.candidates.length) return "manual";  // no match -> record normally
+  return await pickCandidate(res.candidates);
 }
-async function doPlay() {
-  const ok = await NK.post("/api/plays", {
-    member_id: +val("pl_member"), points: +val("pl_points"), note: val("pl_note") || null,
+
+function pickCandidate(candidates) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    const items = candidates.map(c => {
+      const t = (c.occurred_at || "").replace("T", " ").slice(5, 16);
+      return `<button class="cand" data-id="${c.id}">${t} · ${c.raw_name} · ${c.value} 點</button>`;
+    }).join("");
+    overlay.innerHTML =
+      `<div class="modal"><h3>找到金額相同且未歸戶的真實紀錄，哪一筆是你的？</h3>` +
+      `<div class="cand-list">${items}</div><div class="modal-actions">` +
+      `<button class="link" data-act="manual">都不是 / 不歸戶（記為一般紀錄）</button>` +
+      `<button class="link" data-act="cancel">取消</button></div></div>`;
+    document.body.appendChild(overlay);
+    const done = (v) => { document.body.removeChild(overlay); resolve(v); };
+    overlay.querySelectorAll(".cand").forEach(b => (b.onclick = () => done(+b.dataset.id)));
+    overlay.querySelector('[data-act="manual"]').onclick = () => done("manual");
+    overlay.querySelector('[data-act="cancel"]').onclick = () => done("cancel");
+    overlay.onclick = (e) => { if (e.target === overlay) done("cancel"); };
   });
-  if (ok) NK.reload();
+}
+
+async function doTopup() {
+  const member_id = +val("tu_member"), points = +val("tu_points"), money = val("tu_money");
+  if (window.AUTO_ATTRIBUTE && member_id === window.MEMBER_ID) {
+    const chosen = await tryAutoAttribute("topup", points);
+    if (chosen === "cancel") return;
+    if (chosen !== "manual") {
+      if (await NK.post(`/api/attribution/self/${chosen}`, { money_nt: money })) NK.reload();
+      return;
+    }
+  }
+  if (await NK.post("/api/topups", { member_id, points, money_nt: money })) NK.reload();
+}
+
+async function doPlay() {
+  const member_id = +val("pl_member"), points = +val("pl_points"), note = val("pl_note") || null;
+  if (window.AUTO_ATTRIBUTE && member_id === window.MEMBER_ID) {
+    const chosen = await tryAutoAttribute("pay", points);
+    if (chosen === "cancel") return;
+    if (chosen !== "manual") {
+      if (await NK.post(`/api/attribution/self/${chosen}`, {})) NK.reload();
+      return;
+    }
+  }
+  if (await NK.post("/api/plays", { member_id, points, note })) NK.reload();
+}
+
+async function toggleAutoAttribute() {
+  const enabled = document.getElementById("aa_toggle").checked;
+  const r = await NK.post("/api/auth/auto-attribute", { enabled });
+  if (r) { window.AUTO_ATTRIBUTE = enabled; }
+  else { document.getElementById("aa_toggle").checked = !enabled; }
 }
 async function doTransfer() {
   const f = +val("tr_from"), t = +val("tr_to");

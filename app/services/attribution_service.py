@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.enums import AttributionStatus, ClaimStatus, EntryType, RealKind
 from app.models.ledger import AttributionClaim, LedgerEntry
 from app.models.real import RealTransaction
+from app.services import audit_service
 from app.services.errors import ConflictError, NotFoundError, ValidationError
 from app.services.ledger_service import _require_active_member, reverse_entry
 from app.util.time import utcnow
@@ -28,6 +29,7 @@ async def attribute(
     member_id: int,
     actor_id: int,
     rate: Decimal,
+    money_nt: Decimal | None = None,
 ) -> LedgerEntry:
     rt = await session.get(RealTransaction, real_txn_id)
     if rt is None:
@@ -38,11 +40,13 @@ async def attribute(
 
     points = abs(rt.value)
     if rt.kind == RealKind.TOPUP.value:
+        # use the real NT$ the member paid if provided, else points * rate
+        money = money_nt if money_nt is not None else (Decimal(points) * rate)
         entry = LedgerEntry(
             member_id=member_id,
             entry_type=EntryType.TOPUP.value,
             points_delta=points,
-            money_nt=(Decimal(points) * rate),
+            money_nt=money,
             note=f"attributed top-up: {rt.raw_name}",
             created_by=actor_id,
             source_real_txn_id=rt.id,
@@ -68,6 +72,11 @@ async def attribute(
         await session.rollback()
         raise ConflictError("transaction already has a ledger entry")
     rt.ledger_entry_id = entry.id
+    await audit_service.record(
+        session, actor_id=actor_id, action="attribution.attribute",
+        target_type="real_txn", target_id=rt.id,
+        detail={"member_id": member_id, "kind": rt.kind, "value": rt.value},
+    )
     await session.commit()
     await session.refresh(entry)
     return entry

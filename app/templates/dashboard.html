@@ -1,7 +1,19 @@
 {% extends "base.html" %}
 {% block title %}儀表板 · NekoPay 帳本{% endblock %}
 {% block content %}
+<script>
+  window.AUTO_ATTRIBUTE = {{ 'true' if member.auto_attribute else 'false' }};
+  window.MEMBER_ID = {{ member.id }};
+</script>
 <div class="grid">
+
+  <section class="card wide aa-bar">
+    <label class="switch">
+      <input type="checkbox" id="aa_toggle" {% if member.auto_attribute %}checked{% endif %} onchange="toggleAutoAttribute()">
+      自動歸戶
+    </label>
+    <span class="muted">開啟後，按「投幣/儲值」會先連線真實白喵帳號，找出金額相同且尚未歸戶的紀錄讓你選擇；找不到或選擇不歸戶則記為一般紀錄。</span>
+  </section>
 
   <section class="card">
     <h2>我的餘額</h2>

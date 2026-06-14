@@ -27,6 +27,7 @@ class MemberOut(BaseModel):
     display_name: str
     role: str
     is_active: bool
+    auto_attribute: bool = True
 
 
 class MemberUpdateIn(BaseModel):
@@ -121,6 +122,24 @@ class RealTxnOut(BaseModel):
 
 class AttributeIn(BaseModel):
     member_id: int
+
+
+class MatchIn(BaseModel):
+    kind: str = Field(pattern="^(topup|pay)$")
+    points: int = Field(gt=0)
+
+
+class CandidatesOut(BaseModel):
+    candidates: list[RealTxnOut]
+    synced: bool
+
+
+class SelfAttributeIn(BaseModel):
+    money_nt: Decimal | None = None  # for top-ups: the real NT$ the member paid
+
+
+class AutoAttributeIn(BaseModel):
+    enabled: bool
 
 
 class IgnoreIn(BaseModel):

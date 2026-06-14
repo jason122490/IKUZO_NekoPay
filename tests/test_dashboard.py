@@ -67,7 +67,7 @@ async def test_member_dashboard_section_order(ctx):
     assert r.status_code == 200
     _assert_order(r.text)
     # site-wide footer is present
-    assert "Created by Claude Code with Opus 4.8 LLM" in r.text
+    assert "Created by Claude Code with Opus 4.8" in r.text
     assert "jason122490@gmail.com" in r.text
     await bob.aclose()
 
@@ -76,7 +76,7 @@ async def test_footer_on_login_page(ctx):
     c = httpx.AsyncClient(transport=ctx, base_url="http://t")
     r = await c.get("/login")
     assert r.status_code == 200
-    assert "Created by Claude Code with Opus 4.8 LLM" in r.text
+    assert "Created by Claude Code with Opus 4.8" in r.text
     assert "jason122490@gmail.com" in r.text
     await c.aclose()
 

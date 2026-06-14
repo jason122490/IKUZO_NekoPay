@@ -11,14 +11,6 @@
 </script>
 <div class="grid">
 
-  <section class="card wide aa-bar">
-    <label class="switch">
-      <input type="checkbox" id="aa_toggle" {% if member.auto_attribute %}checked{% endif %} onchange="toggleAutoAttribute()">
-      自動歸戶
-    </label>
-    <span class="muted">開啟後，按「投幣/儲值」會先連線真實白喵帳號，找出金額相同且尚未歸戶的紀錄讓你選擇；找不到或選擇不歸戶則記為一般紀錄。</span>
-  </section>
-
   <section class="card">
     <h2>我的餘額 / 總消費</h2>
     <div class="stat-row">
@@ -41,6 +33,22 @@
   </section>
 
   <section class="card">
+    <h2>投幣 <span class="muted">消耗點數</span></h2>
+    {% if member.role == 'admin' %}
+    <label>成員
+      <select id="pl_member">
+        {% for m in members %}<option value="{{ m.id }}" {% if m.id==member.id %}selected{% endif %}>{{ m.display_name }}</option>{% endfor %}
+      </select>
+    </label>
+    {% else %}
+    <input type="hidden" id="pl_member" value="{{ member.id }}">
+    {% endif %}
+    <label>點數<input id="pl_points" type="number" min="1" value="3"></label>
+    <label>備註（機台）<input id="pl_note" type="text" placeholder="竹喵店 - Chunithm"></label>
+    <button class="primary" onclick="doPlay()">投幣</button>
+  </section>
+
+  <section class="card">
     <h2>儲值 <span class="muted">輸入金額，自動換算點數</span></h2>
     {% if member.role == 'admin' %}
     <label>成員
@@ -55,22 +63,6 @@
     <p class="muted" id="tu_preview">—</p>
     <p class="muted">匯率 {{ rate }} 元/點{% if vip_bonus_pct %}；共用卡 VIP 滿 NT${{ bonus_min_topup }} 加贈 {{ vip_bonus_pct }}%{% endif %}</p>
     <button class="primary" onclick="doTopup()">儲值</button>
-  </section>
-
-  <section class="card">
-    <h2>投幣 <span class="muted">消耗點數</span></h2>
-    {% if member.role == 'admin' %}
-    <label>成員
-      <select id="pl_member">
-        {% for m in members %}<option value="{{ m.id }}" {% if m.id==member.id %}selected{% endif %}>{{ m.display_name }}</option>{% endfor %}
-      </select>
-    </label>
-    {% else %}
-    <input type="hidden" id="pl_member" value="{{ member.id }}">
-    {% endif %}
-    <label>點數<input id="pl_points" type="number" min="1" value="3"></label>
-    <label>備註（機台）<input id="pl_note" type="text" placeholder="竹喵店 - Chunithm"></label>
-    <button class="primary" onclick="doPlay()">投幣</button>
   </section>
 
   <section class="card">
@@ -93,41 +85,6 @@
     <label>點數<input id="tr_points" type="number" min="1" value="10"></label>
     <button class="primary" onclick="doTransfer()">轉點</button>
   </section>
-
-  <section class="card wide">
-    <h2>成員餘額與分帳</h2>
-    <table>
-      <thead><tr><th>成員</th><th>餘額(點)</th><th>投入(NT$)</th><th>已消費(點)</th><th>淨額(NT$)</th></tr></thead>
-      <tbody>
-        {% for p in positions %}
-        <tr>
-          <td>{{ p.display_name }}</td>
-          <td>{{ p.balance_points }}</td>
-          <td>{{ p.contributed_nt }}</td>
-          <td>{{ p.consumed_points }}</td>
-          <td class="{{ 'pos' if p.fairness_net_nt >= 0 else 'neg' }}">{{ p.fairness_net_nt }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <h3>結算建議（誰付給誰）</h3>
-    {% if txns %}
-      <ul class="settle">
-        {% for t in txns %}<li><b>{{ t.from_name }}</b> → <b>{{ t.to_name }}</b> ：NT$ {{ t.amount_nt }}</li>{% endfor %}
-      </ul>
-    {% else %}<p class="muted">目前無需結算 🎉</p>{% endif %}
-  </section>
-
-  {% if recon %}
-  <section class="card wide">
-    <h2>對帳（管理員）</h2>
-    <p>內部總點數 <b>{{ recon.internal_total }}</b> ·
-       真實池餘額 <b>{{ recon.pooled_balance if recon.pooled_balance is not none else '—' }}</b> ·
-       差異 <b class="{{ 'neg' if recon.drift else 'pos' }}">{{ recon.drift if recon.drift is not none else '—' }}</b></p>
-    <p class="muted">未歸戶 {{ recon.unattributed_count }} 筆（{{ recon.unattributed_value }} 點）·
-       無真實憑證的內部分錄 {{ recon.manual_entry_count }} 筆 · <a href="/admin">前往歸戶 →</a></p>
-  </section>
-  {% endif %}
 
   <section class="card wide">
     <h2>我的近期紀錄 <span class="muted">（可自行修改/刪除/歸戶）</span></h2>
@@ -163,6 +120,49 @@
         {% endfor %}
       </tbody>
     </table>
+  </section>
+
+  <section class="card wide aa-bar">
+    <label class="switch">
+      <input type="checkbox" id="aa_toggle" {% if member.auto_attribute %}checked{% endif %} onchange="toggleAutoAttribute()">
+      自動歸戶
+    </label>
+    <span class="muted">開啟後，按「投幣/儲值」會先連線真實白喵帳號，找出金額相同且尚未歸戶的紀錄讓你選擇；找不到或選擇不歸戶則記為一般紀錄。</span>
+  </section>
+
+  {% if recon %}
+  <section class="card wide">
+    <h2>對帳（管理員）</h2>
+    <p>內部總點數 <b>{{ recon.internal_total }}</b> ·
+       真實池餘額 <b>{{ recon.pooled_balance if recon.pooled_balance is not none else '—' }}</b> ·
+       差異 <b class="{{ 'neg' if recon.drift else 'pos' }}">{{ recon.drift if recon.drift is not none else '—' }}</b></p>
+    <p class="muted">未歸戶 {{ recon.unattributed_count }} 筆（{{ recon.unattributed_value }} 點）·
+       無真實憑證的內部分錄 {{ recon.manual_entry_count }} 筆 · <a href="/admin">前往歸戶 →</a></p>
+  </section>
+  {% endif %}
+
+  <section class="card wide">
+    <h2>成員餘額與分帳</h2>
+    <table>
+      <thead><tr><th>成員</th><th>餘額(點)</th><th>投入(NT$)</th><th>已消費(點)</th><th>淨額(NT$)</th></tr></thead>
+      <tbody>
+        {% for p in positions %}
+        <tr>
+          <td>{{ p.display_name }}</td>
+          <td>{{ p.balance_points }}</td>
+          <td>{{ p.contributed_nt }}</td>
+          <td>{{ p.consumed_points }}</td>
+          <td class="{{ 'pos' if p.fairness_net_nt >= 0 else 'neg' }}">{{ p.fairness_net_nt }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <h3>結算建議（誰付給誰）</h3>
+    {% if txns %}
+      <ul class="settle">
+        {% for t in txns %}<li><b>{{ t.from_name }}</b> → <b>{{ t.to_name }}</b> ：NT$ {{ t.amount_nt }}</li>{% endfor %}
+      </ul>
+    {% else %}<p class="muted">目前無需結算 🎉</p>{% endif %}
   </section>
 
 </div>

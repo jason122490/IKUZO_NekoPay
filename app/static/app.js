@@ -80,16 +80,29 @@ function pickCandidate(candidates) {
   });
 }
 
+function updateTopupPreview() {
+  const el = document.getElementById("tu_preview");
+  if (el) el.textContent = ((+val("tu_points") || 0) * (window.RATE || 1)).toFixed(2);
+}
+
 async function doTopup() {
-  const member_id = +val("tu_member"), points = +val("tu_points"), money = val("tu_money");
+  const member_id = +val("tu_member"), points = +val("tu_points");
   if (!points || points <= 0) { alert("請輸入點數"); return; }
+  // members enter points only; the server derives NT$ from the admin-set rate
   const chosen = await autoAttributeFlow("topup", points, member_id === window.MEMBER_ID);
   if (chosen === "cancel") return;            // user aborted
   if (chosen !== "manual") {                  // attribute the chosen real txn
-    if (await NK.post(`/api/attribution/self/${chosen}`, { money_nt: money })) NK.reload();
+    if (await NK.post(`/api/attribution/self/${chosen}`, {})) NK.reload();
     return;
   }
-  if (await NK.post("/api/topups", { member_id, points, money_nt: money })) NK.reload();
+  if (await NK.post("/api/topups", { member_id, points })) NK.reload();
+}
+
+async function setRate() {
+  const rate = val("rate_input");
+  if (!rate || +rate <= 0) { alert("請輸入有效匯率"); return; }
+  const r = await NK.post("/api/admin/rate", { rate });
+  if (r) { alert("匯率已更新為 " + r.rate + " NT$/點"); NK.reload(); }
 }
 
 async function doPlay() {
@@ -199,3 +212,6 @@ function startEdit(btn) {
     if (await NK.post(`/api/ledger/${id}/edit`, body)) { close(); NK.reload(); }
   };
 }
+
+// initialize the top-up NT$ preview if the field is present
+if (document.getElementById("tu_points")) updateTopupPreview();

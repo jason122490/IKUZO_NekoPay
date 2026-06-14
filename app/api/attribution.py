@@ -71,12 +71,14 @@ async def self_attribute(
     session: AsyncSession = Depends(get_session),
 ) -> LedgerEntryOut:
     rate = await config_service.get_rate(session, settings.default_rate_nt_per_point)
+    # members can't set NT$; only an admin override is honored (else rate-derived)
+    money_nt = payload.money_nt if member.role == "admin" else None
     entry = await attribution_service.attribute(
         session,
         real_txn_id=real_txn_id,
         member_id=member.id,
         actor_id=member.id,
         rate=rate,
-        money_nt=payload.money_nt,
+        money_nt=money_nt,
     )
     return LedgerEntryOut.model_validate(entry)

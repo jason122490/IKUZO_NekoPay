@@ -59,9 +59,18 @@ class BalanceOut(BaseModel):
 class TopUpIn(BaseModel):
     member_id: int
     points: int = Field(gt=0)
-    money_nt: Decimal = Field(gt=0)
+    # NT$ is derived from the admin-set rate; only admins may override it.
+    money_nt: Decimal | None = Field(default=None, gt=0)
     note: str | None = None
     idempotency_key: str | None = None
+
+
+class RateIn(BaseModel):
+    rate: Decimal = Field(gt=0)  # NT$ per point
+
+
+class RateOut(BaseModel):
+    rate: Decimal
 
 
 class PlayIn(BaseModel):

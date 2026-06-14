@@ -1,16 +1,20 @@
 """The core member actions: 儲值 (top-up), 投幣 (play), 轉點 (transfer)."""
 from __future__ import annotations
 
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.db import get_session
 from app.models.user import Member
 from app.schemas import LedgerEntryOut, PlayIn, TopUpIn, TransferIn, TransferOut
 from app.security import get_current_member, verify_csrf
-from app.services import ledger_service
+from app.services import config_service, ledger_service
 
 router = APIRouter(prefix="/api", tags=["actions"], dependencies=[Depends(verify_csrf)])
+settings = get_settings()
 
 
 def _is_admin(m: Member) -> bool:
@@ -25,11 +29,17 @@ async def create_topup(
 ) -> LedgerEntryOut:
     if payload.member_id != viewer.id and not _is_admin(viewer):
         raise HTTPException(status_code=403, detail="cannot top up for another member")
+    # NT$ comes from the admin-set rate; only admins may override it explicitly.
+    rate = await config_service.get_rate(session, settings.default_rate_nt_per_point)
+    if _is_admin(viewer) and payload.money_nt is not None:
+        money = payload.money_nt
+    else:
+        money = Decimal(payload.points) * rate
     entry = await ledger_service.record_topup(
         session,
         member_id=payload.member_id,
         points=payload.points,
-        money_nt=payload.money_nt,
+        money_nt=money,
         created_by=viewer.id,
         note=payload.note,
         idempotency_key=payload.idempotency_key,

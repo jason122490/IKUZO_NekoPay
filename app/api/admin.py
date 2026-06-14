@@ -15,6 +15,8 @@ from app.schemas import (
     IgnoreIn,
     LedgerEntryOut,
     MessageOut,
+    RateIn,
+    RateOut,
     ReconciliationOut,
     RealTxnOut,
     SyncRunOut,
@@ -152,6 +154,21 @@ async def adjustment(
         reason=payload.reason,
     )
     return LedgerEntryOut.model_validate(entry)
+
+
+@router.get("/rate", response_model=RateOut)
+async def get_rate(session: AsyncSession = Depends(get_session)) -> RateOut:
+    return RateOut(rate=await _rate(session))
+
+
+@router.post("/rate", response_model=RateOut, dependencies=[Depends(verify_csrf)])
+async def set_rate(
+    payload: RateIn,
+    admin: Member = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+) -> RateOut:
+    rate = await config_service.set_rate(session, payload.rate)
+    return RateOut(rate=rate)
 
 
 @router.get("/reconciliation", response_model=ReconciliationOut)

@@ -146,12 +146,13 @@ async def admin_page(request: Request, session: AsyncSession = Depends(get_sessi
         (await session.execute(select(Member).where(Member.is_active.is_(True)))).scalars()
     )
     recon = await reconcile_report(session)
+    rate = await config_service.get_rate(session, settings.default_rate_nt_per_point)
     return templates.TemplateResponse(
         request,
         "admin.html",
         {
             "member": member, "csrf": csrf, "unattributed": unattributed,
-            "claims": claims, "members": members, "recon": recon,
+            "claims": claims, "members": members, "recon": recon, "rate": rate,
         },
     )
 

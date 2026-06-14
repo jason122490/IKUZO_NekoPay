@@ -4,6 +4,8 @@
 <script>
   window.AUTO_ATTRIBUTE = {{ 'true' if member.auto_attribute else 'false' }};
   window.MEMBER_ID = {{ member.id }};
+  window.RATE = {{ rate }};
+  window.IS_ADMIN = {{ 'true' if member.role == 'admin' else 'false' }};
 </script>
 <div class="grid">
 
@@ -22,14 +24,14 @@
   </section>
 
   <section class="card">
-    <h2>儲值 <span class="muted">NT$ → 點數</span></h2>
+    <h2>儲值 <span class="muted">輸入點數（金額依匯率換算）</span></h2>
     <label>成員
       <select id="tu_member">
         {% for m in members %}<option value="{{ m.id }}" {% if m.id==member.id %}selected{% endif %}>{{ m.display_name }}</option>{% endfor %}
       </select>
     </label>
-    <label>金額 (NT$)<input id="tu_money" type="number" min="1" step="0.01" value="100"></label>
-    <label>點數<input id="tu_points" type="number" min="1" value="100"></label>
+    <label>點數<input id="tu_points" type="number" min="1" value="100" oninput="updateTopupPreview()"></label>
+    <p class="muted">≈ NT$ <span id="tu_preview">—</span>（匯率 {{ rate }} NT$/點，由管理員設定）</p>
     <button class="primary" onclick="doTopup()">儲值</button>
   </section>
 

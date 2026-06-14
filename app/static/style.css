@@ -48,8 +48,9 @@ th { color:var(--muted); font-weight:600; }
 tr.inactive { opacity:.45; }
 .actions a, .actions button { margin-right:8px; }
 .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-.filters { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin:8px 0 14px; }
-.filters label { margin:0; }
+.filters { display:flex; gap:14px 22px; align-items:center; flex-wrap:wrap; margin:10px 0 18px; }
+/* each filter is "label control" inline with a little breathing room */
+.filters label { margin:0; display:inline-flex; align-items:center; gap:6px; }
 .filters select { width:auto; min-width:120px; }
 /* date inputs default to width:100% and would wrap to their own line; size
    them to content so they sit inline with the other filter controls */

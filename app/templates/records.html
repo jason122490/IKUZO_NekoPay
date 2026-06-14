@@ -33,7 +33,6 @@
       <label>迄 <input type="date" name="end" value="{{ end }}"></label>
       <button class="primary">篩選</button>
       {% if start or end %}<a href="/records?kind={{ kind }}&attr={{ attr }}&sort={{ sort }}" class="muted">清除日期</a>{% endif %}
-      <a href="/dashboard" class="muted">← 回儀表板</a>
     </form>
     {% if rows %}
     {{ records_table(rows) }}

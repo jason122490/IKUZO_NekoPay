@@ -65,7 +65,7 @@
     {% endif %}
     <label>投入金額 (NT$)<input id="tu_money" type="number" min="1" value="300" oninput="updateTopupPreview()"></label>
     <p class="muted" id="tu_preview">—</p>
-    <p class="muted">匯率 {{ rate }} 元/點{% if vip_bonus_pct %}；共用卡 VIP 滿 NT${{ bonus_min_topup }} 加贈 {{ vip_bonus_pct }}%{% endif %}</p>
+    <p class="muted">匯率 {{ rate }} 元/點{% if vip_bonus_pct %}；目前 VIP 等級：{{ vip_name }} 滿 NT${{ bonus_min_topup }} 加贈 {{ vip_bonus_pct }}%{% endif %}</p>
     <label>時間<input id="tu_time" type="datetime-local"></label>
     <span class="muted">預設為現在；若自動歸戶成功，會改用歸戶紀錄的時間。</span>
     <button class="primary" onclick="doTopup()">儲值</button>

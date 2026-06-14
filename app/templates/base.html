@@ -12,10 +12,10 @@
     <a href="/dashboard" class="brand">IKUZO✝NekoPay</a>
     <nav>
       {% if member %}
-        <span class="who">{{ member.display_name }}{% if member.role == 'admin' %} · 管理員{% endif %}</span>
+        <span class="who">{{ member.display_name }} · {{ ROLE_LABELS.get(member.role, member.role) }}</span>
         <a href="/dashboard">儀表板</a>
         <a href="/records">我的紀錄</a>
-        <a href="/vip">VIP</a>
+        <a href="/vip">VIP等級</a>
         {% if member.role == 'admin' %}<a href="/admin">歸戶/對帳</a><a href="/admin/members">成員管理</a><a href="/admin/history">同步紀錄</a>{% endif %}
         <form method="post" action="/logout" class="inline"><button class="link">登出</button></form>
       {% endif %}

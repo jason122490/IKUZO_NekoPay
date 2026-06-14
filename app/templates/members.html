@@ -9,7 +9,7 @@
     <label>暱稱<input id="nm_name" type="text" placeholder="顯示名稱"></label>
     <label>初始密碼<input id="nm_pwd" type="text" placeholder="至少 6 碼"></label>
     <label>角色
-      <select id="nm_role"><option value="member">member</option><option value="admin">admin</option></select>
+      <select id="nm_role"><option value="member">一般會員</option><option value="admin">管理員</option></select>
     </label>
     <button class="primary" onclick="addMember()">建立帳號</button>
   </section>
@@ -25,8 +25,8 @@
           <td class="muted">{{ r.m.username }}</td>
           <td>
             <select id="role_{{ r.m.id }}" onchange="changeRole({{ r.m.id }})" {% if r.m.id==member.id %}disabled title="不能改自己的角色"{% endif %}>
-              <option value="member" {% if r.m.role=='member' %}selected{% endif %}>member</option>
-              <option value="admin" {% if r.m.role=='admin' %}selected{% endif %}>admin</option>
+              <option value="member" {% if r.m.role=='member' %}selected{% endif %}>一般會員</option>
+              <option value="admin" {% if r.m.role=='admin' %}selected{% endif %}>管理員</option>
             </select>
           </td>
           <td>{% if r.m.is_active %}<span class="pos">啟用</span>{% else %}<span class="neg">停用</span>{% endif %}</td>

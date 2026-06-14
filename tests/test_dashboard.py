@@ -71,6 +71,8 @@ async def test_member_dashboard_section_order(ctx):
     # site-wide footer is present
     assert "Created by Claude Code with Opus 4.8" in r.text
     assert "jason122490@gmail.com" in r.text
+    # nav shows the localized role after the nickname
+    assert "一般會員" in r.text
     await bob.aclose()
 
 
@@ -157,4 +159,6 @@ async def test_admin_dashboard_renders_with_recon(ctx):
     assert r.text.find("<h2>對帳（管理員）") < r.text.find("<h2>成員餘額")
     # settlement suggestions removed (no debt scenario)
     assert "結算建議" not in r.text
+    # nav shows the localized admin role
+    assert "管理員" in r.text
     await admin.aclose()

@@ -33,7 +33,7 @@ from app.services.settlement import compute_positions
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
 # bump to force browsers to re-fetch static CSS/JS after changes
-templates.env.globals["asset_v"] = "17"
+templates.env.globals["asset_v"] = "18"
 # Chinese labels for enum values shown in the UI
 templates.env.globals["ENTRY_LABELS"] = {
     "TOPUP": "儲值", "PLAY": "投幣", "TRANSFER_IN": "轉入",
@@ -47,6 +47,7 @@ templates.env.globals["RUN_LABELS"] = {
     "ok": "成功", "auth_failed": "認證失敗",
     "transport_failed": "連線失敗", "partial": "部分失敗",
 }
+templates.env.globals["ROLE_LABELS"] = {"admin": "管理員", "member": "一般會員"}
 settings = get_settings()
 
 
@@ -155,6 +156,7 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
         select(AccountSnapshot).order_by(AccountSnapshot.captured_at.desc()).limit(1)
     )).scalar_one_or_none()
     vip_bonus_pct = bonus_pct_for(snap.vip_name) if snap else 0
+    vip_name = snap.vip_name if snap else None
     positions = await compute_positions(session, rate)
     my_balance = await ledger_service.get_balance(session, member.id)
 
@@ -212,6 +214,7 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
             "my_balance": my_balance, "recent_rows": recent_rows, "recon": recon,
             "spend_labels": spend_labels, "spend_values": spend_values,
             "total_spent": total_spent, "vip_bonus_pct": vip_bonus_pct,
+            "vip_name": vip_name,
             "my_balance_nt": my_balance_nt, "total_spent_nt": total_spent_nt,
             "my_rate_display": my_rate_display, "has_personal_rate": has_personal_rate,
             "bonus_min_topup": BONUS_MIN_TOPUP,

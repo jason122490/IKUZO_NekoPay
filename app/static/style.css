@@ -72,6 +72,8 @@ tr.inactive { opacity:.45; }
   .nav { padding:12px 14px; flex-wrap:wrap; }
   .nav nav { width:100%; margin-top:14px; gap:16px; flex-wrap:wrap; row-gap:8px; }
   .brand { width:100%; text-align:center; font-size:24px; margin-bottom:4px; }
+  /* nickname stays left; push 登出 to the far right of the row */
+  .nav nav button.link { margin-left:auto; }
 
   .card { padding:14px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
   .card.login { margin:6vh auto; }

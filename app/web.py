@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -57,6 +58,14 @@ def _localdt(dt, fmt: str = "%m/%d %H:%M") -> str:
 
 
 templates.env.filters["localdt"] = _localdt
+
+
+def _parse_day(s: str):
+    """Parse a YYYY-MM-DD string (local date), or None if blank/invalid."""
+    try:
+        return datetime.strptime(s, "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return None
 
 
 def _entry_rows(entries):
@@ -216,12 +225,23 @@ async def my_records(
     kind: str = "",
     attr: str = "",
     sort: str = "time",
+    start: str = "",
+    end: str = "",
     session: AsyncSession = Depends(get_session),
 ):
     member, csrf = await _current(request, session)
     if member is None:
         return RedirectResponse("/login", status_code=303)
     stmt = select(LedgerEntry).where(LedgerEntry.member_id == member.id)
+    # date range: entered as local (Taipei) days -> UTC bounds; end day inclusive
+    tz = settings.app_timezone
+    start_day = _parse_day(start)
+    if start_day is not None:
+        stmt = stmt.where(LedgerEntry.created_at >= local_to_utc(start_day, tz))
+    end_day = _parse_day(end)
+    if end_day is not None:
+        stmt = stmt.where(
+            LedgerEntry.created_at < local_to_utc(end_day + timedelta(days=1), tz))
     if kind == "topup":
         stmt = stmt.where(LedgerEntry.entry_type == EntryType.TOPUP.value)
     elif kind == "play":
@@ -248,7 +268,8 @@ async def my_records(
         request,
         "records.html",
         {"member": member, "csrf": csrf, "rows": _entry_rows(entries),
-         "kind": kind, "attr": attr, "sort": sort, "total": len(entries)},
+         "kind": kind, "attr": attr, "sort": sort,
+         "start": start, "end": end, "total": len(entries)},
     )
 
 

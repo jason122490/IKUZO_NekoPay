@@ -117,6 +117,28 @@ async def test_records_page_shows_all_and_filters(ctx):
     await c.aclose()
 
 
+async def test_records_date_range_filter(ctx):
+    c = httpx.AsyncClient(transport=ctx, base_url="http://t")
+    r = await c.post("/api/auth/login", json={"username": "bob", "password": "secret1"})
+    h = {"X-CSRF-Token": r.json()["csrf_token"]}
+    bob = next(m["id"] for m in (await c.get("/api/members")).json()
+               if m["username"] == "bob")
+    for day in ("2026-06-10", "2026-06-11", "2026-06-12"):
+        await c.post("/api/topups", headers=h,
+                     json={"member_id": bob, "money_nt": 100, "occurred_at": f"{day}T12:00"})
+
+    def n_rows(text):
+        return text.count('onclick="delEntry(')
+
+    assert n_rows((await c.get("/records")).text) == 3
+    # ranges are inclusive of the local end day (Taipei -> UTC bounds)
+    assert n_rows((await c.get("/records", params={"start": "2026-06-11"})).text) == 2
+    assert n_rows((await c.get("/records", params={"end": "2026-06-11"})).text) == 2
+    assert n_rows((await c.get(
+        "/records", params={"start": "2026-06-11", "end": "2026-06-11"})).text) == 1
+    await c.aclose()
+
+
 async def test_footer_on_login_page(ctx):
     c = httpx.AsyncClient(transport=ctx, base_url="http://t")
     r = await c.get("/login")

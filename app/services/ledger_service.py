@@ -144,7 +144,7 @@ async def record_play(
         balance = await get_balance(session, member_id)
         if balance < points:
             raise InsufficientBalanceError(
-                f"insufficient balance: have {balance}, need {points}"
+                f"餘額不足：目前 {balance} 點，需要 {points} 點"
             )
 
     entry = LedgerEntry(
@@ -195,7 +195,7 @@ async def transfer(
         balance = await get_balance(session, from_member_id)
         if balance < points:
             raise InsufficientBalanceError(
-                f"insufficient balance: have {balance}, need {points}"
+                f"餘額不足：目前 {balance} 點，需要 {points} 點"
             )
 
     group_id = str(uuid.uuid4())

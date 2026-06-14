@@ -14,8 +14,8 @@ from app.util.time import utcnow
 
 from app.config import get_settings
 from app.db import get_session
-from app.models.enums import AttributionStatus, ClaimStatus, EntryType
-from app.models.ledger import AttributionClaim, LedgerEntry
+from app.models.enums import AttributionStatus, EntryType
+from app.models.ledger import LedgerEntry
 from app.models.real import AccountSnapshot, RealTransaction, SyncRun
 from app.models.user import Member
 from app.services import auth_service, config_service, ledger_service
@@ -31,7 +31,7 @@ from app.services.settlement import compute_positions, settle
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
 # bump to force browsers to re-fetch static CSS/JS after changes
-templates.env.globals["asset_v"] = "11"
+templates.env.globals["asset_v"] = "12"
 # Chinese labels for enum values shown in the UI
 templates.env.globals["ENTRY_LABELS"] = {
     "TOPUP": "儲值", "PLAY": "投幣", "TRANSFER_IN": "轉入",
@@ -220,11 +220,6 @@ async def admin_page(request: Request, session: AsyncSession = Depends(get_sessi
             .order_by(RealTransaction.occurred_at.desc()).limit(100)
         )).scalars()
     )
-    claims = list(
-        (await session.execute(
-            select(AttributionClaim).where(AttributionClaim.status == ClaimStatus.PENDING.value)
-        )).scalars()
-    )
     members = list(
         (await session.execute(select(Member).where(Member.is_active.is_(True)))).scalars()
     )
@@ -236,7 +231,7 @@ async def admin_page(request: Request, session: AsyncSession = Depends(get_sessi
         "admin.html",
         {
             "member": member, "csrf": csrf, "unattributed": unattributed,
-            "claims": claims, "members": members, "recon": recon, "rate": rate,
+            "members": members, "recon": recon, "rate": rate,
             "sync_since": sync_since,
         },
     )

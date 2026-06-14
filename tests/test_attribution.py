@@ -7,11 +7,7 @@ import pytest
 
 from app.models.real import AccountSnapshot, RealTransaction
 from app.services import ledger_service as svc
-from app.services.attribution_service import (
-    approve_claim,
-    attribute,
-    create_claim,
-)
+from app.services.attribution_service import attribute
 from app.services.errors import ConflictError
 from app.services.reconciliation import reconcile_report
 from app.util.time import utcnow
@@ -83,24 +79,3 @@ async def test_reconciliation_drift(session, create_member):
     rep = await reconcile_report(session)
     assert rep.pooled_balance == 30
     assert rep.drift == 0
-
-
-async def test_claim_then_approve(session, create_member):
-    admin = await create_member("admin", role="admin")
-    bob = await create_member("bob")
-    pay = await _make_real(
-        session, kind="pay", value=-3, name="竹喵店 - maimaiDX", key="h9"
-    )
-
-    bob_id, admin_id, pay_id = bob.id, admin.id, pay.id
-    claim = await create_claim(session, real_txn_id=pay_id, member_id=bob_id)
-    claim_id = claim.id
-    # duplicate pending claim rejected (rollback here expires ORM objects)
-    with pytest.raises(ConflictError):
-        await create_claim(session, real_txn_id=pay_id, member_id=bob_id)
-
-    await approve_claim(session, claim_id=claim_id, actor_id=admin_id, rate=RATE)
-    assert await svc.get_balance(session, bob_id) == -3
-    refreshed = await session.get(RealTransaction, pay_id)
-    assert refreshed.attribution_status == "attributed"
-    assert refreshed.attributed_member_id == bob_id

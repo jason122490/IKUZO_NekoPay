@@ -13,8 +13,8 @@ from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enums import AttributionStatus, ClaimStatus, EntryType, RealKind
-from app.models.ledger import AttributionClaim, LedgerEntry
+from app.models.enums import AttributionStatus, EntryType, RealKind
+from app.models.ledger import LedgerEntry
 from app.models.real import RealTransaction
 from app.services import audit_service
 from app.services.errors import ConflictError, NotFoundError, ValidationError
@@ -117,72 +117,3 @@ async def reverse_attribution(
     rt.ledger_entry_id = None
     await session.commit()
     return rt
-
-
-# ----------------------------------------------------------- member self-claim
-
-
-async def create_claim(
-    session: AsyncSession, *, real_txn_id: int, member_id: int
-) -> AttributionClaim:
-    rt = await session.get(RealTransaction, real_txn_id)
-    if rt is None:
-        raise NotFoundError(f"real transaction {real_txn_id} not found")
-    if rt.attribution_status != AttributionStatus.UNATTRIBUTED.value:
-        raise ConflictError("transaction already attributed or ignored")
-    claim = AttributionClaim(real_txn_id=real_txn_id, member_id=member_id)
-    session.add(claim)
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
-        raise ConflictError("you already have a pending claim for this transaction")
-    await session.refresh(claim)
-    return claim
-
-
-async def approve_claim(
-    session: AsyncSession, *, claim_id: int, actor_id: int, rate: Decimal
-) -> LedgerEntry:
-    claim = await session.get(AttributionClaim, claim_id)
-    if claim is None or claim.status != ClaimStatus.PENDING.value:
-        raise NotFoundError("pending claim not found")
-    entry = await attribute(
-        session,
-        real_txn_id=claim.real_txn_id,
-        member_id=claim.member_id,
-        actor_id=actor_id,
-        rate=rate,
-    )
-    claim.status = ClaimStatus.APPROVED.value
-    claim.resolved_at = utcnow()
-    claim.resolved_by = actor_id
-    # auto-reject other pending claims for the same transaction
-    await session.execute(
-        update(AttributionClaim)
-        .where(
-            AttributionClaim.real_txn_id == claim.real_txn_id,
-            AttributionClaim.status == ClaimStatus.PENDING.value,
-            AttributionClaim.id != claim.id,
-        )
-        .values(
-            status=ClaimStatus.REJECTED.value,
-            resolved_at=utcnow(),
-            resolved_by=actor_id,
-        )
-    )
-    await session.commit()
-    return entry
-
-
-async def reject_claim(
-    session: AsyncSession, *, claim_id: int, actor_id: int
-) -> AttributionClaim:
-    claim = await session.get(AttributionClaim, claim_id)
-    if claim is None or claim.status != ClaimStatus.PENDING.value:
-        raise NotFoundError("pending claim not found")
-    claim.status = ClaimStatus.REJECTED.value
-    claim.resolved_at = utcnow()
-    claim.resolved_by = actor_id
-    await session.commit()
-    return claim

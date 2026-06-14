@@ -1,4 +1,4 @@
-"""Admin endpoints: sync, attribution, claims, adjustments, reconciliation."""
+"""Admin endpoints: sync, attribution, adjustments, reconciliation."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -115,38 +115,6 @@ async def ignore_txn(
         session, real_txn_id=txn_id, actor_id=admin.id, reason=payload.reason
     )
     return MessageOut(detail="ignored")
-
-
-@router.post(
-    "/claims/{claim_id}/approve",
-    response_model=LedgerEntryOut,
-    dependencies=[Depends(verify_csrf)],
-)
-async def approve_claim(
-    claim_id: int,
-    admin: Member = Depends(require_admin),
-    session: AsyncSession = Depends(get_session),
-) -> LedgerEntryOut:
-    entry = await attribution_service.approve_claim(
-        session, claim_id=claim_id, actor_id=admin.id, rate=await _rate(session)
-    )
-    return LedgerEntryOut.model_validate(entry)
-
-
-@router.post(
-    "/claims/{claim_id}/reject",
-    response_model=MessageOut,
-    dependencies=[Depends(verify_csrf)],
-)
-async def reject_claim(
-    claim_id: int,
-    admin: Member = Depends(require_admin),
-    session: AsyncSession = Depends(get_session),
-) -> MessageOut:
-    await attribution_service.reject_claim(
-        session, claim_id=claim_id, actor_id=admin.id
-    )
-    return MessageOut(detail="rejected")
 
 
 @router.post(

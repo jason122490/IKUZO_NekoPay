@@ -173,8 +173,6 @@ async function ignoreTxn(id) {
   const reason = await inputModal("忽略原因", "原因"); if (!reason) return;
   if (await NK.post(`/api/admin/real-transactions/${id}/ignore`, { reason })) NK.reload();
 }
-async function approveClaim(id) { if (await NK.post(`/api/admin/claims/${id}/approve`, {})) NK.reload(); }
-async function rejectClaim(id) { if (await NK.post(`/api/admin/claims/${id}/reject`, {})) NK.reload(); }
 async function syncNow() {
   const r = await NK.post("/api/admin/sync/run-now", {});
   if (r) { alert("同步狀態：" + r.status + "，新增 " + r.rows_inserted + " 筆"); NK.reload(); }

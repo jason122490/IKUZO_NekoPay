@@ -62,26 +62,5 @@
     <button class="link danger" onclick="resetDatabase()">重置資料庫…</button>
   </section>
 
-  <section class="card wide">
-    <h2>待審核的認領（{{ claims|length }}）</h2>
-    {% if claims %}
-    <table>
-      <thead><tr><th>交易#</th><th>認領成員#</th><th></th></tr></thead>
-      <tbody>
-        {% for c in claims %}
-        <tr>
-          <td>{{ c.real_txn_id }}</td>
-          <td>{{ c.member_id }}</td>
-          <td>
-            <button onclick="approveClaim({{ c.id }})">核可</button>
-            <button class="link" onclick="rejectClaim({{ c.id }})">拒絕</button>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}<p class="muted">沒有待審核的認領</p>{% endif %}
-  </section>
-
 </div>
 {% endblock %}

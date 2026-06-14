@@ -21,6 +21,8 @@ h3 { font-size:14px; color:var(--muted); margin:16px 0 8px; }
 label { display:block; font-size:13px; color:var(--muted); margin:10px 0 0; }
 input, select { width:100%; margin-top:4px; padding:9px 10px; border-radius:9px;
   border:1px solid var(--line); background:#0e1322; color:var(--ink); font-size:14px; }
+/* inside tables, controls size to content (don't collapse in auto-width cells) */
+td select, td input { width:auto; min-width:88px; margin-top:0; }
 button { margin-top:12px; padding:9px 14px; border-radius:9px; border:1px solid var(--line);
   background:#222a40; color:var(--ink); cursor:pointer; font-size:14px; }
 button.primary { background:var(--accent); border-color:var(--accent); color:#0b0f1a; font-weight:600; }

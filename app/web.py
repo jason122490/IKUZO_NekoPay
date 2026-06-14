@@ -1,12 +1,14 @@
 """Server-rendered HTML pages (Jinja2). Actions POST to the JSON API via fetch."""
 from __future__ import annotations
 
+import csv
+import io
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.util.time import utcnow
@@ -17,7 +19,7 @@ from app.config import get_settings
 from app.db import get_session
 from app.models.enums import AttributionStatus, ClaimStatus
 from app.models.ledger import AttributionClaim, LedgerEntry
-from app.models.real import AccountSnapshot, RealTransaction
+from app.models.real import AccountSnapshot, RealTransaction, SyncRun
 from app.models.user import Member
 from app.services import auth_service, config_service, ledger_service
 from app.vip import VIP_TIERS, next_tier as vip_next_tier
@@ -185,6 +187,89 @@ async def admin_page(request: Request, session: AsyncSession = Depends(get_sessi
             "member": member, "csrf": csrf, "unattributed": unattributed,
             "claims": claims, "members": members, "recon": recon, "rate": rate,
         },
+    )
+
+
+@router.get("/admin/history", response_class=HTMLResponse)
+async def admin_history(
+    request: Request,
+    kind: str = "",
+    status: str = "",
+    session: AsyncSession = Depends(get_session),
+):
+    member, csrf = await _current(request, session)
+    if member is None or member.role != "admin":
+        return RedirectResponse("/dashboard" if member else "/login", status_code=303)
+
+    stmt = select(RealTransaction).order_by(RealTransaction.occurred_at.desc())
+    if kind in ("topup", "pay"):
+        stmt = stmt.where(RealTransaction.kind == kind)
+    if status in ("unattributed", "attributed", "ignored"):
+        stmt = stmt.where(RealTransaction.attribution_status == status)
+    rows = list((await session.execute(stmt.limit(500))).scalars())
+
+    total = int((await session.execute(
+        select(func.count()).select_from(RealTransaction))).scalar_one())
+    span = (await session.execute(select(
+        func.min(RealTransaction.occurred_at),
+        func.max(RealTransaction.occurred_at)))).one()
+    members_map = {
+        m.id: m.display_name
+        for m in (await session.execute(select(Member))).scalars()
+    }
+    last_run = (await session.execute(
+        select(SyncRun).order_by(SyncRun.started_at.desc()).limit(1)
+    )).scalar_one_or_none()
+    last_age = (
+        int((utcnow() - last_run.finished_at).total_seconds())
+        if last_run and last_run.finished_at else None
+    )
+    recent_runs = list((await session.execute(
+        select(SyncRun).order_by(SyncRun.id.desc()).limit(8))).scalars())
+
+    return templates.TemplateResponse(
+        request, "history.html",
+        {
+            "member": member, "csrf": csrf, "rows": rows, "shown": len(rows),
+            "total": total, "span": span, "kind": kind, "status": status,
+            "members_map": members_map, "last_run": last_run, "last_age": last_age,
+            "recent_runs": recent_runs,
+        },
+    )
+
+
+@router.get("/admin/history.csv")
+async def admin_history_csv(
+    request: Request, session: AsyncSession = Depends(get_session)
+):
+    member, _ = await _current(request, session)
+    if member is None or member.role != "admin":
+        return RedirectResponse("/dashboard" if member else "/login", status_code=303)
+    rows = list((await session.execute(
+        select(RealTransaction).order_by(RealTransaction.occurred_at.desc())
+    )).scalars())
+    members_map = {
+        m.id: m.display_name
+        for m in (await session.execute(select(Member))).scalars()
+    }
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["occurred_at", "kind", "shop", "machine", "value", "pay_type",
+                "attribution_status", "attributed_member", "first_seen_at",
+                "last_seen_at"])
+    for r in rows:
+        w.writerow([
+            r.occurred_at.isoformat(sep=" ") if r.occurred_at else "",
+            r.kind, r.shop, r.machine or "", r.value, r.pay_type or "",
+            r.attribution_status,
+            members_map.get(r.attributed_member_id, "") if r.attributed_member_id else "",
+            r.first_seen_at.isoformat(sep=" ") if r.first_seen_at else "",
+            r.last_seen_at.isoformat(sep=" ") if r.last_seen_at else "",
+        ])
+    return Response(
+        content="﻿" + buf.getvalue(),  # BOM so Excel reads UTF-8 (Chinese)
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=nekopay_history.csv"},
     )
 
 

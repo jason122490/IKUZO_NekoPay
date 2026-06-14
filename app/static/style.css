@@ -26,8 +26,12 @@ td select, td input { width:auto; min-width:88px; margin-top:0; }
 button { margin-top:12px; padding:9px 14px; border-radius:9px; border:1px solid var(--line);
   background:#222a40; color:var(--ink); cursor:pointer; font-size:14px; }
 button.primary { background:var(--accent); border-color:var(--accent); color:#0b0f1a; font-weight:600; }
-button.link { background:none; border:none; color:var(--accent); padding:4px 6px; }
+button.link { background:none; border:none; color:var(--accent); padding:4px 6px;
+  font:inherit; line-height:1; }
 button.link.danger { color:var(--neg); }
+/* keep the logout button on the same baseline as the nav links */
+.nav nav form.inline { margin:0; display:inline-flex; align-items:center; }
+.nav nav form.inline button.link { padding:0; }
 .inline { display:inline; }
 table { width:100%; border-collapse:collapse; font-size:14px; }
 th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
@@ -38,6 +42,10 @@ th { color:var(--muted); font-weight:600; }
 tr.inactive { opacity:.45; }
 .actions a, .actions button { margin-right:8px; }
 .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.filters { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin:8px 0 14px; }
+.filters label { margin:0; }
+.filters select { width:auto; min-width:120px; }
+.filters .primary { margin-top:0; }
 .aa-bar { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
 .switch { display:inline-flex; align-items:center; gap:8px; margin:0; color:var(--ink); font-size:15px; }
 .switch input { width:auto; margin:0; }

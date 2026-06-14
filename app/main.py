@@ -1,6 +1,7 @@
 """FastAPI application factory and wiring."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from datetime import timedelta
@@ -75,10 +76,21 @@ async def lifespan(app: FastAPI):
     sync_manager = SyncManager(settings)
     app.state.sync_manager = sync_manager
     sync_manager.start()
+    # also sync once immediately at startup so the DB is fresh right away
+    # (the interval timer's first tick is one interval later)
+    if settings.run_scheduler and settings.nekopay_email and settings.nekopay_password:
+        app.state._startup_sync = asyncio.create_task(_startup_sync(sync_manager))
     try:
         yield
     finally:
         await sync_manager.shutdown()
+
+
+async def _startup_sync(sync_manager: SyncManager) -> None:
+    try:
+        await sync_manager.run_once()
+    except Exception:  # never let a startup sync hiccup crash the app
+        log.warning("startup sync failed", exc_info=True)
 
 
 def create_app() -> FastAPI:

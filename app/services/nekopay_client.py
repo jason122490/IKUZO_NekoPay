@@ -36,6 +36,7 @@ class NekoPayClient:
         user_agent: str,
         *,
         timeout: float = 10.0,
+        proxy: str | None = None,
         client: httpx.AsyncClient | None = None,
     ):
         self.base_url = base_url.rstrip("/")
@@ -46,6 +47,7 @@ class NekoPayClient:
             "Referer": f"{self.base_url}/",
         }
         self._timeout = httpx.Timeout(timeout, connect=5.0)
+        self._proxy = proxy or None  # treat "" as no proxy
         self._client = client  # injectable for tests
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -55,6 +57,7 @@ class NekoPayClient:
                 headers=self._headers,
                 timeout=self._timeout,
                 follow_redirects=True,
+                proxy=self._proxy,
             )
         return self._client
 

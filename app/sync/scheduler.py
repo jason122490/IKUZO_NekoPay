@@ -28,7 +28,9 @@ class SyncManager:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.client = NekoPayClient(
-            settings.nekopay_base_url, settings.nekopay_user_agent
+            settings.nekopay_base_url,
+            settings.nekopay_user_agent,
+            proxy=settings.nekopay_proxy,
         )
         self.token_manager = TokenManager(
             self.client, settings.nekopay_email, settings.nekopay_password

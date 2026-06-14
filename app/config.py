@@ -35,6 +35,10 @@ class Settings(BaseSettings):
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
     )
+    # Route requests to shironekoya.net through this proxy (e.g. a home/residential
+    # box) so Cloudflare sees a trusted IP. Empty -> connect directly.
+    # Example: "http://100.x.y.z:8888"
+    nekopay_proxy: str = ""
 
     # Sync
     run_scheduler: bool = True

@@ -23,12 +23,39 @@ window.NK = {
 
 function val(id) { return document.getElementById(id).value; }
 
-// Returns a real_txn id (number), "manual", or "cancel".
-async function tryAutoAttribute(kind, points) {
+// The auto-attribution dialog ALWAYS appears on 投幣/儲值.
+// Returns a real_txn id (number) to attribute, "manual" to record normally,
+// or "cancel" to abort the action entirely.
+async function autoAttributeFlow(kind, points, isSelf) {
+  if (!isSelf) {
+    return await infoDialog("此操作為代他人記錄，不進行自動歸戶。要記為一般紀錄嗎？");
+  }
+  if (!window.AUTO_ATTRIBUTE) {
+    return await infoDialog("未開啟自動歸戶。要將這筆記為一般紀錄嗎？");
+  }
   const res = await NK.post("/api/attribution/match", { kind, points });
-  if (!res) return "cancel";                 // request failed (already alerted)
-  if (!res.candidates.length) return "manual";  // no match -> record normally
+  if (!res) return "cancel";  // request failed (already alerted)
+  if (!res.candidates.length) {
+    return await infoDialog("未匹配：找不到金額相同且尚未歸戶的真實紀錄。要記為一般紀錄嗎？");
+  }
   return await pickCandidate(res.candidates);
+}
+
+// Confirmation dialog for the off / no-match / on-behalf cases.
+function infoDialog(message) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `<div class="modal"><h3>自動歸戶</h3><p>${message}</p>` +
+      `<div class="modal-actions">` +
+      `<button class="primary" data-act="manual">記為一般紀錄</button>` +
+      `<button class="link" data-act="cancel">取消</button></div></div>`;
+    document.body.appendChild(overlay);
+    const done = (v) => { document.body.removeChild(overlay); resolve(v); };
+    overlay.querySelector('[data-act="manual"]').onclick = () => done("manual");
+    overlay.querySelector('[data-act="cancel"]').onclick = () => done("cancel");
+    overlay.onclick = (e) => { if (e.target === overlay) done("cancel"); };
+  });
 }
 
 function pickCandidate(candidates) {
@@ -55,26 +82,24 @@ function pickCandidate(candidates) {
 
 async function doTopup() {
   const member_id = +val("tu_member"), points = +val("tu_points"), money = val("tu_money");
-  if (window.AUTO_ATTRIBUTE && member_id === window.MEMBER_ID) {
-    const chosen = await tryAutoAttribute("topup", points);
-    if (chosen === "cancel") return;
-    if (chosen !== "manual") {
-      if (await NK.post(`/api/attribution/self/${chosen}`, { money_nt: money })) NK.reload();
-      return;
-    }
+  if (!points || points <= 0) { alert("請輸入點數"); return; }
+  const chosen = await autoAttributeFlow("topup", points, member_id === window.MEMBER_ID);
+  if (chosen === "cancel") return;            // user aborted
+  if (chosen !== "manual") {                  // attribute the chosen real txn
+    if (await NK.post(`/api/attribution/self/${chosen}`, { money_nt: money })) NK.reload();
+    return;
   }
   if (await NK.post("/api/topups", { member_id, points, money_nt: money })) NK.reload();
 }
 
 async function doPlay() {
   const member_id = +val("pl_member"), points = +val("pl_points"), note = val("pl_note") || null;
-  if (window.AUTO_ATTRIBUTE && member_id === window.MEMBER_ID) {
-    const chosen = await tryAutoAttribute("pay", points);
-    if (chosen === "cancel") return;
-    if (chosen !== "manual") {
-      if (await NK.post(`/api/attribution/self/${chosen}`, {})) NK.reload();
-      return;
-    }
+  if (!points || points <= 0) { alert("請輸入點數"); return; }
+  const chosen = await autoAttributeFlow("pay", points, member_id === window.MEMBER_ID);
+  if (chosen === "cancel") return;
+  if (chosen !== "manual") {
+    if (await NK.post(`/api/attribution/self/${chosen}`, {})) NK.reload();
+    return;
   }
   if (await NK.post("/api/plays", { member_id, points, note })) NK.reload();
 }

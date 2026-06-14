@@ -23,6 +23,26 @@ window.NK = {
 
 function val(id) { return document.getElementById(id).value; }
 
+// Reliable in-page replacement for prompt() (browsers can suppress prompt()).
+function inputModal(title, placeholder, type) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `<div class="modal"><h3>${title}</h3>` +
+      `<input id="im_input" type="${type || "text"}" placeholder="${placeholder || ""}">` +
+      `<div class="modal-actions"><button class="primary" id="im_ok">確定</button>` +
+      `<button class="link" id="im_cancel">取消</button></div></div>`;
+    document.body.appendChild(overlay);
+    const inp = overlay.querySelector("#im_input");
+    setTimeout(() => inp.focus(), 0);
+    const done = (v) => { document.body.removeChild(overlay); resolve(v); };
+    overlay.querySelector("#im_ok").onclick = () => done(inp.value);
+    overlay.querySelector("#im_cancel").onclick = () => done(null);
+    overlay.onclick = (e) => { if (e.target === overlay) done(null); };
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") done(inp.value); });
+  });
+}
+
 // The auto-attribution dialog ALWAYS appears on 投幣/儲值.
 // Returns a real_txn id (number) to attribute, "manual" to record normally,
 // or "cancel" to abort the action entirely.
@@ -135,9 +155,8 @@ async function attribute(id) {
   if (ok) NK.reload();
 }
 async function ignoreTxn(id) {
-  const reason = prompt("忽略原因？"); if (!reason) return;
-  const ok = await NK.post(`/api/admin/real-transactions/${id}/ignore`, { reason });
-  if (ok) NK.reload();
+  const reason = await inputModal("忽略原因", "原因"); if (!reason) return;
+  if (await NK.post(`/api/admin/real-transactions/${id}/ignore`, { reason })) NK.reload();
 }
 async function approveClaim(id) { if (await NK.post(`/api/admin/claims/${id}/approve`, {})) NK.reload(); }
 async function rejectClaim(id) { if (await NK.post(`/api/admin/claims/${id}/reject`, {})) NK.reload(); }
@@ -157,7 +176,8 @@ async function changeRole(id) {
   if (await NK.post(`/api/members/${id}/update`, { role })) NK.reload();
 }
 async function renameMember(id) {
-  const name = prompt("新的暱稱？"); if (!name) return;
+  const name = await inputModal("改暱稱", "新的暱稱");
+  if (!name) return;
   if (await NK.post(`/api/members/${id}/update`, { display_name: name })) NK.reload();
 }
 async function setActive(id, active) {
@@ -165,7 +185,9 @@ async function setActive(id, active) {
   if (await NK.post(`/api/members/${id}/status`, { is_active: active })) NK.reload();
 }
 async function resetPwd(id) {
-  const pwd = prompt("輸入新密碼（至少 6 碼）："); if (!pwd) return;
+  const pwd = await inputModal("重設密碼", "至少 6 碼");
+  if (!pwd) return;
+  if (pwd.length < 6) { alert("密碼至少 6 碼"); return; }
   if (await NK.post(`/api/members/${id}/reset-password`, { new_password: pwd })) {
     alert("已重設，對方需用新密碼重新登入"); NK.reload();
   }

@@ -169,6 +169,8 @@ async def test_delete_attributed_entry_frees_real_txn(ctx):
             base_hash="z1", dedup_key="z1", occurrence_index=0))
         await s.commit()
     c, h = await _login(transport)
+    bob = await _id(c, "bob@nekopay.app")
+    await c.post("/api/topups", headers=h, json={"member_id": bob, "money_nt": 100})
     cand = (await c.post("/api/attribution/match", headers=h,
                          json={"kind": "pay", "points": 3})).json()["candidates"][0]
     entry = (await c.post(f"/api/attribution/self/{cand['id']}", headers=h, json={})).json()
@@ -316,6 +318,8 @@ async def test_edit_attributed_amount_blocked_note_ok(ctx):
             base_hash="z2", dedup_key="z2", occurrence_index=0))
         await s.commit()
     c, h = await _login(transport)
+    bob = await _id(c, "bob@nekopay.app")
+    await c.post("/api/topups", headers=h, json={"member_id": bob, "money_nt": 100})
     cand = (await c.post("/api/attribution/match", headers=h,
                          json={"kind": "pay", "points": 3})).json()["candidates"][0]
     entry = (await c.post(f"/api/attribution/self/{cand['id']}", headers=h, json={})).json()

@@ -17,8 +17,17 @@ from app.models.enums import AttributionStatus, EntryType, RealKind
 from app.models.ledger import LedgerEntry
 from app.models.real import RealTransaction
 from app.services import audit_service
-from app.services.errors import ConflictError, NotFoundError, ValidationError
-from app.services.ledger_service import _require_active_member, reverse_entry
+from app.services.errors import (
+    ConflictError,
+    InsufficientBalanceError,
+    NotFoundError,
+    ValidationError,
+)
+from app.services.ledger_service import (
+    _require_active_member,
+    get_balance,
+    reverse_entry,
+)
 from app.util.time import utcnow
 
 
@@ -30,6 +39,7 @@ async def attribute(
     actor_id: int,
     rate: Decimal,
     money_nt: Decimal | None = None,
+    allow_negative: bool = False,
 ) -> LedgerEntry:
     rt = await session.get(RealTransaction, real_txn_id)
     if rt is None:
@@ -50,8 +60,17 @@ async def attribute(
             note=rt.raw_name,
             created_by=actor_id,
             source_real_txn_id=rt.id,
+            created_at=rt.occurred_at,  # 繼承真實交易（歸戶）的時間
         )
     else:
+        # a play spends points; block overdraft unless explicitly allowed
+        # (admins may record a real play as deliberate debt)
+        if not allow_negative:
+            balance = await get_balance(session, member_id)
+            if balance < points:
+                raise InsufficientBalanceError(
+                    f"餘額不足：目前 {balance} 點，需要 {points} 點"
+                )
         entry = LedgerEntry(
             member_id=member_id,
             entry_type=EntryType.PLAY.value,
@@ -59,6 +78,7 @@ async def attribute(
             note=rt.raw_name,
             created_by=actor_id,
             source_real_txn_id=rt.id,
+            created_at=rt.occurred_at,  # 繼承真實交易（歸戶）的時間
         )
 
     rt.attribution_status = AttributionStatus.ATTRIBUTED.value

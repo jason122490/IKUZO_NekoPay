@@ -79,3 +79,25 @@ async def test_reconciliation_drift(session, create_member):
     rep = await reconcile_report(session)
     assert rep.pooled_balance == 30
     assert rep.drift == 0
+
+
+async def test_attributed_entry_inherits_real_txn_time(session, create_member):
+    # 歸戶後，分錄時間要用真實交易的時間，而不是現在
+    from datetime import timedelta
+
+    admin = await create_member("admin", role="admin")
+    alice = await create_member("alice")
+    past = utcnow() - timedelta(days=5)
+    rt = RealTransaction(
+        kind="topup", shop="竹喵店", raw_name="竹喵店", value=30,
+        occurred_at=past, occurred_date_raw="06/09", occurred_time_raw="12:00",
+        base_hash="t1", dedup_key="t1", occurrence_index=0,
+    )
+    session.add(rt)
+    await session.commit()
+    await session.refresh(rt)
+
+    entry = await attribute(
+        session, real_txn_id=rt.id, member_id=alice.id, actor_id=admin.id, rate=RATE
+    )
+    assert entry.created_at == past

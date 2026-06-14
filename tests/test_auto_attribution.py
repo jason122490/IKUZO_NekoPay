@@ -87,6 +87,10 @@ async def test_match_only_same_amount(ctx):
 async def test_self_attribute_links_and_consumes(ctx):
     transport, maker = ctx
     c, h = await _login(transport)
+    bob = next(m["id"] for m in (await c.get("/api/members")).json()
+               if m["username"] == "bob@nekopay.app")
+    # a member must have points before claiming a play (overdraft is blocked)
+    await c.post("/api/topups", headers=h, json={"member_id": bob, "money_nt": 100})
     cand = (await c.post("/api/attribution/match", headers=h,
                          json={"kind": "pay", "points": 3})).json()["candidates"]
     rid = cand[0]["id"]
@@ -137,6 +141,9 @@ async def test_toggle_auto_attribute_persists(ctx):
 async def test_self_attribute_conflict_when_already_taken(ctx):
     transport, _ = ctx
     bob_c, bh = await _login(transport, "bob@nekopay.app")
+    bob = next(m["id"] for m in (await bob_c.get("/api/members")).json()
+               if m["username"] == "bob@nekopay.app")
+    await bob_c.post("/api/topups", headers=bh, json={"member_id": bob, "money_nt": 100})
     cand = (await bob_c.post("/api/attribution/match", headers=bh,
                              json={"kind": "pay", "points": 5})).json()["candidates"][0]
     assert (await bob_c.post(f"/api/attribution/self/{cand['id']}", headers=bh,
@@ -146,3 +153,35 @@ async def test_self_attribute_conflict_when_already_taken(ctx):
     r = await admin_c.post(f"/api/attribution/self/{cand['id']}", headers=ah, json={})
     assert r.status_code == 409
     await bob_c.aclose(); await admin_c.aclose()
+
+
+async def test_self_attribute_play_blocked_when_insufficient(ctx):
+    # claiming (歸戶) a play you can't afford is blocked just like 投幣
+    transport, _ = ctx
+    c, h = await _login(transport)  # bob, balance 0
+    cand = (await c.post("/api/attribution/match", headers=h,
+                         json={"kind": "pay", "points": 3})).json()["candidates"][0]
+    r = await c.post(f"/api/attribution/self/{cand['id']}", headers=h, json={})
+    assert r.status_code == 409
+    assert "餘額不足" in r.json()["detail"]
+    # the real txn stays unattributed (both -3 candidates still available)
+    left = (await c.post("/api/attribution/match", headers=h,
+                         json={"kind": "pay", "points": 3})).json()["candidates"]
+    assert len(left) == 2
+    await c.aclose()
+
+
+async def test_admin_attribute_allows_debt(ctx):
+    # admin records a real play even when the member can't cover it (debt)
+    transport, _ = ctx
+    admin_c, ah = await _login(transport, "admin@nekopay.app")
+    bob = next(m["id"] for m in (await admin_c.get("/api/members")).json()
+               if m["username"] == "bob@nekopay.app")
+    cand = (await admin_c.post("/api/attribution/match", headers=ah,
+                               json={"kind": "pay", "points": 3})).json()["candidates"][0]
+    r = await admin_c.post(f"/api/admin/real-transactions/{cand['id']}/attribute",
+                           headers=ah, json={"member_id": bob})
+    assert r.status_code == 200
+    bal = (await admin_c.get(f"/api/members/{bob}/balance")).json()
+    assert bal["points_balance"] == -3   # debt allowed via the admin path
+    await admin_c.aclose()

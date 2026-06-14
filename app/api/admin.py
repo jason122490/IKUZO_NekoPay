@@ -96,6 +96,7 @@ async def attribute_txn(
         member_id=payload.member_id,
         actor_id=admin.id,
         rate=await _rate(session),
+        allow_negative=True,  # admin records a real play even as deliberate debt
     )
     return LedgerEntryOut.model_validate(entry)
 

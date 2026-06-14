@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     app_timezone: str = "Asia/Taipei"
 
     # Economics
-    default_rate_nt_per_point: float = 1.0
+    default_rate_nt_per_point: float = 10.0  # 1 point = 10 NT$ (admin-settable)
 
     # Bootstrap admin
     admin_bootstrap_email: str = ""

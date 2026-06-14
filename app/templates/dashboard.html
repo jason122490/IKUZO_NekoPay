@@ -6,6 +6,8 @@
   window.MEMBER_ID = {{ member.id }};
   window.RATE = {{ rate }};
   window.IS_ADMIN = {{ 'true' if member.role == 'admin' else 'false' }};
+  window.VIP_BONUS_PCT = {{ vip_bonus_pct }};
+  window.BONUS_MIN_TOPUP = {{ bonus_min_topup }};
 </script>
 <div class="grid">
 
@@ -39,7 +41,7 @@
   </section>
 
   <section class="card">
-    <h2>儲值 <span class="muted">輸入點數（金額依匯率換算）</span></h2>
+    <h2>儲值 <span class="muted">輸入金額，自動換算點數</span></h2>
     {% if member.role == 'admin' %}
     <label>成員
       <select id="tu_member">
@@ -49,8 +51,9 @@
     {% else %}
     <input type="hidden" id="tu_member" value="{{ member.id }}">
     {% endif %}
-    <label>點數<input id="tu_points" type="number" min="1" value="100" oninput="updateTopupPreview()"></label>
-    <p class="muted">≈ NT$ <span id="tu_preview">—</span>（匯率 {{ rate }} NT$/點，由管理員設定）</p>
+    <label>投入金額 (NT$)<input id="tu_money" type="number" min="1" value="300" oninput="updateTopupPreview()"></label>
+    <p class="muted" id="tu_preview">—</p>
+    <p class="muted">匯率 {{ rate }} 元/點{% if vip_bonus_pct %}；共用卡 VIP 滿 NT${{ bonus_min_topup }} 加贈 {{ vip_bonus_pct }}%{% endif %}</p>
     <button class="primary" onclick="doTopup()">儲值</button>
   </section>
 

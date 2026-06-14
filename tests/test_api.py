@@ -87,7 +87,7 @@ async def test_csrf_required_on_mutations(ctx):
     c, _ = await _login(ctx, "admin@nekopay.app", "secret1")
     bob = await _member_id(c, "bob@nekopay.app")
     # no CSRF header -> blocked
-    r = await c.post("/api/topups", json={"member_id": bob, "points": 10, "money_nt": 10})
+    r = await c.post("/api/topups", json={"member_id": bob, "money_nt": 100})
     assert r.status_code == 403
     await c.aclose()
 
@@ -106,9 +106,9 @@ async def test_four_actions_flow(ctx):
     )
     assert r.status_code == 200, r.text
 
-    # 儲值
+    # 儲值 (money input; rate 10, no snapshot -> 1000 NT$ = 100 點)
     r = await admin.post(
-        "/api/topups", json={"member_id": bob, "points": 100, "money_nt": 100}, headers=h
+        "/api/topups", json={"member_id": bob, "money_nt": 1000}, headers=h
     )
     assert r.status_code == 200
     bal = (await admin.get(f"/api/members/{bob}/balance")).json()
@@ -181,7 +181,7 @@ async def test_member_cannot_act_for_others(ctx):
     adm = await _member_id(bob_c, "admin@nekopay.app")
     # top up / play for someone else -> 403
     assert (await bob_c.post("/api/topups", headers=h,
-            json={"member_id": adm, "points": 10})).status_code == 403
+            json={"member_id": adm, "money_nt": 100})).status_code == 403
     assert (await bob_c.post("/api/plays", headers=h,
             json={"member_id": adm, "points": 10})).status_code == 403
     # transfer FROM someone else -> 403

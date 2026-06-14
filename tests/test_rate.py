@@ -1,4 +1,4 @@
-"""Cash<->point rate is admin-only; members enter points only (NT$ derived)."""
+"""Rate is admin-only; 儲值 takes money and derives points (+ VIP bonus)."""
 from __future__ import annotations
 
 import httpx
@@ -14,6 +14,7 @@ from sqlalchemy.pool import StaticPool
 import app.models  # noqa: F401
 from app.db import Base, get_session
 from app.main import create_app
+from app.models.real import AccountSnapshot
 from app.models.user import Member
 from app.services.auth_service import hash_password
 
@@ -40,7 +41,7 @@ async def ctx():
         s.add(Member(email="bob@nekopay.app", display_name="Bob",
                      password_hash=hash_password("secret1"), role="member"))
         await s.commit()
-    yield ASGITransport(app=application)
+    yield ASGITransport(app=application), maker
     await engine.dispose()
 
 
@@ -55,50 +56,63 @@ async def _id(c, email):
                if m["email"] == email)
 
 
-async def test_member_topup_derives_money_from_rate(ctx):
-    c, h = await _login(ctx, "bob@nekopay.app")
+async def _seed_tier(maker, vip_name):
+    async with maker() as s:
+        s.add(AccountSnapshot(balance=0, vip_name=vip_name,
+                              vip_next_value=27000, is_premium=True))
+        await s.commit()
+
+
+async def test_topup_money_to_points_default_rate(ctx):
+    transport, _ = ctx
+    c, h = await _login(transport, "bob@nekopay.app")
     bob = await _id(c, "bob@nekopay.app")
-    r = await c.post("/api/topups", headers=h, json={"member_id": bob, "points": 100})
+    # default rate 10 -> NT$1000 = 100 點 (no snapshot -> no VIP bonus)
+    r = await c.post("/api/topups", headers=h, json={"member_id": bob, "money_nt": 1000})
     assert r.status_code == 200
-    assert r.json()["money_nt"] == "100.00"  # default rate 1.0
-    await c.aclose()
-
-
-async def test_member_cannot_override_money(ctx):
-    c, h = await _login(ctx, "bob@nekopay.app")
-    bob = await _id(c, "bob@nekopay.app")
-    # member tries to sneak a money_nt -> ignored, still points * rate
-    r = await c.post("/api/topups", headers=h,
-                     json={"member_id": bob, "points": 100, "money_nt": 9999})
-    assert r.status_code == 200 and r.json()["money_nt"] == "100.00"
+    assert r.json()["points_delta"] == 100
+    assert r.json()["money_nt"] == "1000.00"
     await c.aclose()
 
 
 async def test_member_cannot_set_rate(ctx):
-    c, h = await _login(ctx, "bob@nekopay.app")
-    r = await c.post("/api/admin/rate", headers=h, json={"rate": 5})
-    assert r.status_code == 403
+    transport, _ = ctx
+    c, h = await _login(transport, "bob@nekopay.app")
+    assert (await c.post("/api/admin/rate", headers=h,
+                         json={"rate": 5})).status_code == 403
     await c.aclose()
 
 
-async def test_admin_sets_rate_and_member_topup_follows(ctx):
-    admin, ah = await _login(ctx, "admin@nekopay.app")
-    r = await admin.post("/api/admin/rate", headers=ah, json={"rate": "2"})
-    assert r.status_code == 200 and r.json()["rate"] == "2"
-    assert (await admin.get("/api/admin/rate")).json()["rate"] == "2"
+async def test_admin_sets_rate_changes_points(ctx):
+    transport, _ = ctx
+    admin, ah = await _login(transport, "admin@nekopay.app")
+    assert (await admin.post("/api/admin/rate", headers=ah,
+                             json={"rate": "20"})).status_code == 200
     await admin.aclose()
-
-    bob, bh = await _login(ctx, "bob@nekopay.app")
+    bob, bh = await _login(transport, "bob@nekopay.app")
     bid = await _id(bob, "bob@nekopay.app")
-    r = await bob.post("/api/topups", headers=bh, json={"member_id": bid, "points": 10})
-    assert r.json()["money_nt"] == "20.00"  # 10 points * rate 2
+    r = await bob.post("/api/topups", headers=bh, json={"member_id": bid, "money_nt": 100})
+    assert r.json()["points_delta"] == 5  # 100 / 20
     await bob.aclose()
 
 
-async def test_admin_may_override_money(ctx):
-    admin, ah = await _login(ctx, "admin@nekopay.app")
-    adm = await _id(admin, "admin@nekopay.app")
-    r = await admin.post("/api/topups", headers=ah,
-                         json={"member_id": adm, "points": 10, "money_nt": 333})
-    assert r.json()["money_nt"] == "333.00"  # admin override honored
-    await admin.aclose()
+async def test_vip_bonus_applies_over_threshold(ctx):
+    transport, maker = ctx
+    await _seed_tier(maker, "金喵")  # 15% bonus
+    c, h = await _login(transport, "bob@nekopay.app")
+    bob = await _id(c, "bob@nekopay.app")
+    # NT$3000, rate 10 -> base 300; >= 300 -> +15% (45) -> 345
+    r = await c.post("/api/topups", headers=h, json={"member_id": bob, "money_nt": 3000})
+    assert r.json()["points_delta"] == 345
+    await c.aclose()
+
+
+async def test_vip_bonus_not_applied_below_threshold(ctx):
+    transport, maker = ctx
+    await _seed_tier(maker, "金喵")
+    c, h = await _login(transport, "bob@nekopay.app")
+    bob = await _id(c, "bob@nekopay.app")
+    # NT$100 < 300 -> no bonus -> 10 點
+    r = await c.post("/api/topups", headers=h, json={"member_id": bob, "money_nt": 100})
+    assert r.json()["points_delta"] == 10
+    await c.aclose()

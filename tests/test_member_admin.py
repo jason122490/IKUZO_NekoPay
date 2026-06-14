@@ -180,7 +180,7 @@ async def test_delete_blocked_when_member_has_history(ctx):
     h = {"X-CSRF-Token": csrf}
     bob = await _id(admin, "bob@nekopay.app")
     await admin.post("/api/topups", headers=h,
-                     json={"member_id": bob, "points": 50, "money_nt": 50})
+                     json={"member_id": bob, "money_nt": 500})
     r = await admin.request("DELETE", f"/api/members/{bob}", headers=h)
     assert r.status_code == 409  # has ledger history -> must disable instead
     await admin.aclose()

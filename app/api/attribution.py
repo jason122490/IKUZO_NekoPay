@@ -71,8 +71,8 @@ async def self_attribute(
     session: AsyncSession = Depends(get_session),
 ) -> LedgerEntryOut:
     rate = await config_service.get_rate(session, settings.default_rate_nt_per_point)
-    # members can't set NT$; only an admin override is honored (else rate-derived)
-    money_nt = payload.money_nt if member.role == "admin" else None
+    # the member reports the NT$ they paid for this top-up (pay txns ignore it)
+    money_nt = payload.money_nt
     entry = await attribution_service.attribute(
         session,
         real_txn_id=real_txn_id,

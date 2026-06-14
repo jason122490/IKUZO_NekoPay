@@ -74,7 +74,7 @@ async def test_member_edits_own_within_window(ctx):
     c, h = await _login(transport)
     bob = await _id(c, "bob@nekopay.app")
     e = (await c.post("/api/topups", headers=h,
-                      json={"member_id": bob, "points": 100, "money_nt": 100})).json()
+                      json={"member_id": bob, "money_nt": 1000})).json()
     r = await c.post(f"/api/ledger/{e['id']}/edit", headers=h, json={"points": 60})
     assert r.status_code == 200 and r.json()["points_delta"] == 60
     assert (await c.get(f"/api/members/{bob}/balance")).json()["points_balance"] == 60
@@ -86,7 +86,7 @@ async def test_member_cannot_edit_after_30min(ctx):
     c, h = await _login(transport)
     bob = await _id(c, "bob@nekopay.app")
     e = (await c.post("/api/topups", headers=h,
-                      json={"member_id": bob, "points": 100, "money_nt": 100})).json()
+                      json={"member_id": bob, "money_nt": 1000})).json()
     await _age_out(maker, e["id"])
     r = await c.post(f"/api/ledger/{e['id']}/edit", headers=h, json={"points": 60})
     assert r.status_code == 403
@@ -100,7 +100,7 @@ async def test_member_cannot_edit_others_record(ctx):
     admin, ah = await _login(transport, "admin@nekopay.app")
     adm = await _id(admin, "admin@nekopay.app")
     e = (await admin.post("/api/topups", headers=ah,
-                          json={"member_id": adm, "points": 10, "money_nt": 10})).json()
+                          json={"member_id": adm, "money_nt": 100})).json()
     await admin.aclose()
     bob_c, bh = await _login(transport)
     r = await bob_c.post(f"/api/ledger/{e['id']}/edit", headers=bh, json={"points": 5})
@@ -113,7 +113,7 @@ async def test_admin_edits_any_record_anytime(ctx):
     bob_c, bh = await _login(transport)
     bob = await _id(bob_c, "bob@nekopay.app")
     e = (await bob_c.post("/api/topups", headers=bh,
-                          json={"member_id": bob, "points": 100, "money_nt": 100})).json()
+                          json={"member_id": bob, "money_nt": 1000})).json()
     await bob_c.aclose()
     await _age_out(maker, e["id"], minutes=999)  # long past the window
     admin, ah = await _login(transport, "admin@nekopay.app")
@@ -129,7 +129,7 @@ async def test_delete_transfer_removes_both_sides(ctx):
     bob = await _id(c, "bob@nekopay.app")
     adm = await _id(c, "admin@nekopay.app")
     await c.post("/api/topups", headers=h,
-                 json={"member_id": bob, "points": 100, "money_nt": 100})
+                 json={"member_id": bob, "money_nt": 1000})
     tr = (await c.post("/api/transfers", headers=h,
                        json={"from_member_id": bob, "to_member_id": adm, "points": 30})).json()
     # delete one side -> both removed, balances restored
@@ -147,7 +147,7 @@ async def test_transfer_cannot_be_edited(ctx):
     bob = await _id(c, "bob@nekopay.app")
     adm = await _id(c, "admin@nekopay.app")
     await c.post("/api/topups", headers=h,
-                 json={"member_id": bob, "points": 100, "money_nt": 100})
+                 json={"member_id": bob, "money_nt": 1000})
     tr = (await c.post("/api/transfers", headers=h,
                        json={"from_member_id": bob, "to_member_id": adm, "points": 30})).json()
     r = await c.post(f"/api/ledger/{tr['out_entry']['id']}/edit", headers=h, json={"points": 5})
@@ -182,7 +182,7 @@ async def test_force_delete_member_purges_records(ctx):
     transport, maker = ctx
     admin, ah = await _login(transport, "admin@nekopay.app")
     bob = await _id(admin, "bob@nekopay.app")
-    await admin.post("/api/topups", headers=ah, json={"member_id": bob, "points": 50})
+    await admin.post("/api/topups", headers=ah, json={"member_id": bob, "money_nt": 500})
     # normal delete blocked (has a record)
     assert (await admin.request("DELETE", f"/api/members/{bob}",
                                 headers=ah)).status_code == 409

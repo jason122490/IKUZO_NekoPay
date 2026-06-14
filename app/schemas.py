@@ -58,9 +58,7 @@ class BalanceOut(BaseModel):
 # ---------------- the four actions ----------------
 class TopUpIn(BaseModel):
     member_id: int
-    points: int = Field(gt=0)
-    # NT$ is derived from the admin-set rate; only admins may override it.
-    money_nt: Decimal | None = Field(default=None, gt=0)
+    money_nt: Decimal = Field(gt=0)  # NT$ paid; points = floor(money/rate) + VIP bonus
     note: str | None = None
     idempotency_key: str | None = None
 

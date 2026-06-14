@@ -22,14 +22,19 @@ from app.models.ledger import AttributionClaim, LedgerEntry
 from app.models.real import AccountSnapshot, RealTransaction, SyncRun
 from app.models.user import Member
 from app.services import auth_service, config_service, ledger_service
-from app.vip import VIP_TIERS, next_tier as vip_next_tier
+from app.vip import (
+    BONUS_MIN_TOPUP,
+    VIP_TIERS,
+    bonus_pct_for,
+    next_tier as vip_next_tier,
+)
 from app.services.reconciliation import reconcile_report
 from app.services.settlement import compute_positions, settle
 
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
 # bump to force browsers to re-fetch static CSS/JS after changes
-templates.env.globals["asset_v"] = "6"
+templates.env.globals["asset_v"] = "7"
 settings = get_settings()
 
 
@@ -98,6 +103,10 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
                                .order_by(Member.display_name))).scalars()
     )
     rate = await config_service.get_rate(session, settings.default_rate_nt_per_point)
+    snap = (await session.execute(
+        select(AccountSnapshot).order_by(AccountSnapshot.captured_at.desc()).limit(1)
+    )).scalar_one_or_none()
+    vip_bonus_pct = bonus_pct_for(snap.vip_name) if snap else 0
     positions = await compute_positions(session, rate)
     txns = settle(positions)
     my_balance = await ledger_service.get_balance(session, member.id)
@@ -146,7 +155,8 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
             "positions": positions, "txns": txns, "rate": rate,
             "my_balance": my_balance, "recent_rows": recent_rows, "recon": recon,
             "spend_labels": spend_labels, "spend_values": spend_values,
-            "total_spent": total_spent,
+            "total_spent": total_spent, "vip_bonus_pct": vip_bonus_pct,
+            "bonus_min_topup": BONUS_MIN_TOPUP,
         },
     )
 

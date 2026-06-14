@@ -107,21 +107,20 @@ async def test_self_attribute_links_and_consumes(ctx):
     await c.aclose()
 
 
-async def test_self_attribute_topup_money_is_rate_derived(ctx):
-    # members can't set NT$; an attributed top-up uses points * rate (default 1.0)
+async def test_self_attribute_topup_uses_member_money(ctx):
+    # points come from the matched real txn; money is what the member paid
     transport, _ = ctx
     c, h = await _login(transport)
     bob = next(m["id"] for m in (await c.get("/api/members")).json()
                if m["email"] == "bob@nekopay.app")
     cand = (await c.post("/api/attribution/match", headers=h,
                          json={"kind": "topup", "points": 33})).json()["candidates"][0]
-    # even if a member sneaks money_nt, it's ignored
     r = await c.post(f"/api/attribution/self/{cand['id']}", headers=h,
                      json={"money_nt": "50"})
     assert r.status_code == 200
-    assert r.json()["money_nt"] == "33.00"
+    assert r.json()["money_nt"] == "50.00"          # member's reported cash
     bal = (await c.get(f"/api/members/{bob}/balance")).json()
-    assert bal["money_contributed"] == "33.00" and bal["points_balance"] == 33
+    assert bal["money_contributed"] == "50.00" and bal["points_balance"] == 33
     await c.aclose()
 
 

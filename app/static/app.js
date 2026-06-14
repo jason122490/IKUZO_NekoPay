@@ -100,22 +100,37 @@ function pickCandidate(candidates) {
   });
 }
 
+// points credited for a NT$ amount: floor(money/rate) + VIP bonus (>= threshold)
+function topupPoints(money) {
+  const rate = window.RATE || 10;
+  const base = Math.floor(money / rate);
+  const pct = window.VIP_BONUS_PCT || 0;
+  const bonus = money >= (window.BONUS_MIN_TOPUP || 300) ? Math.floor(base * pct / 100) : 0;
+  return { base, bonus, total: base + bonus };
+}
+
 function updateTopupPreview() {
   const el = document.getElementById("tu_preview");
-  if (el) el.textContent = ((+val("tu_points") || 0) * (window.RATE || 1)).toFixed(2);
+  if (!el) return;
+  const b = topupPoints(+val("tu_money") || 0);
+  let s = `基礎 ${b.base} 點`;
+  if (b.bonus) s += ` ＋ VIP 加贈 ${b.bonus} 點`;
+  el.textContent = s + ` = 共 ${b.total} 點`;
 }
 
 async function doTopup() {
-  const member_id = +val("tu_member"), points = +val("tu_points");
-  if (!points || points <= 0) { alert("請輸入點數"); return; }
-  // members enter points only; the server derives NT$ from the admin-set rate
-  const chosen = await autoAttributeFlow("topup", points, member_id === window.MEMBER_ID);
-  if (chosen === "cancel") return;            // user aborted
-  if (chosen !== "manual") {                  // attribute the chosen real txn
-    if (await NK.post(`/api/attribution/self/${chosen}`, {})) NK.reload();
+  const member_id = +val("tu_member"), money = +val("tu_money");
+  if (!money || money <= 0) { alert("請輸入金額"); return; }
+  const total = topupPoints(money).total;
+  if (total <= 0) { alert("金額太少，不足 1 點"); return; }
+  // top-up by money; points (incl. VIP bonus) are computed server-side
+  const chosen = await autoAttributeFlow("topup", total, member_id === window.MEMBER_ID);
+  if (chosen === "cancel") return;
+  if (chosen !== "manual") {
+    if (await NK.post(`/api/attribution/self/${chosen}`, { money_nt: money })) NK.reload();
     return;
   }
-  if (await NK.post("/api/topups", { member_id, points })) NK.reload();
+  if (await NK.post("/api/topups", { member_id, money_nt: money })) NK.reload();
 }
 
 async function setRate() {
@@ -251,5 +266,5 @@ function startEdit(btn) {
   };
 }
 
-// initialize the top-up NT$ preview if the field is present
-if (document.getElementById("tu_points")) updateTopupPreview();
+// initialize the top-up points preview if the field is present
+if (document.getElementById("tu_money")) updateTopupPreview();

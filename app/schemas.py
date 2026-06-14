@@ -86,6 +86,12 @@ class AdjustmentIn(BaseModel):
     reason: str = Field(min_length=1)
 
 
+class EditEntryIn(BaseModel):
+    points: int | None = None       # magnitude (sign derived from entry type)
+    money_nt: Decimal | None = None  # top-ups only
+    note: str | None = None
+
+
 class LedgerEntryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

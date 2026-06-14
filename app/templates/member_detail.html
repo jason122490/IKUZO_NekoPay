@@ -11,11 +11,12 @@
   </section>
 
   <section class="card wide">
-    <h2>完整帳本紀錄（最近 {{ entries|length }} 筆）</h2>
+    <h2>完整帳本紀錄（最近 {{ rows|length }} 筆）<span class="muted">（管理員可隨時修改/刪除）</span></h2>
     <table>
-      <thead><tr><th>時間</th><th>類型</th><th>點數</th><th>NT$</th><th>備註</th><th>來源</th></tr></thead>
+      <thead><tr><th>時間</th><th>類型</th><th>點數</th><th>NT$</th><th>備註</th><th>來源</th><th>操作</th></tr></thead>
       <tbody>
-        {% for e in entries %}
+        {% for r in rows %}
+        {% set e = r.e %}
         <tr>
           <td>{{ e.created_at.strftime('%Y/%m/%d %H:%M') }}</td>
           <td>{{ e.entry_type }}</td>
@@ -23,6 +24,17 @@
           <td>{{ e.money_nt if e.money_nt is not none else '' }}</td>
           <td>{{ e.note or '' }}</td>
           <td class="muted">{% if e.source_real_txn_id %}真實#{{ e.source_real_txn_id }}{% elif e.transfer_group_id %}轉點{% else %}手動{% endif %}</td>
+          <td class="actions">
+            {% if not r.is_transfer %}
+            <button class="link" onclick="startEdit(this)"
+              data-id="{{ e.id }}" data-type="{{ e.entry_type }}"
+              data-points="{{ e.points_delta if e.points_delta >= 0 else -e.points_delta }}"
+              data-money="{{ e.money_nt if e.money_nt is not none else '' }}"
+              data-note="{{ e.note or '' }}"
+              {% if e.source_real_txn_id %}data-locked="1"{% endif %}>編輯</button>
+            {% endif %}
+            <button class="link danger" onclick="delEntry({{ e.id }})">刪除</button>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

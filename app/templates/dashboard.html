@@ -97,17 +97,33 @@
   {% endif %}
 
   <section class="card wide">
-    <h2>我的近期紀錄</h2>
+    <h2>我的近期紀錄 <span class="muted">（30 分鐘內可自行修改/刪除）</span></h2>
     <table>
-      <thead><tr><th>時間</th><th>類型</th><th>點數</th><th>NT$</th><th>備註</th></tr></thead>
+      <thead><tr><th>時間</th><th>類型</th><th>點數</th><th>NT$</th><th>備註</th><th>操作</th></tr></thead>
       <tbody>
-        {% for e in recent %}
+        {% for r in recent_rows %}
+        {% set e = r.e %}
         <tr>
           <td>{{ e.created_at.strftime('%m/%d %H:%M') }}</td>
           <td>{{ e.entry_type }}</td>
           <td class="{{ 'pos' if e.points_delta >= 0 else 'neg' }}">{{ e.points_delta }}</td>
           <td>{{ e.money_nt if e.money_nt is not none else '' }}</td>
           <td>{{ e.note or '' }}</td>
+          <td class="actions">
+            {% if r.can_modify %}
+              {% if not r.is_transfer %}
+              <button class="link" onclick="startEdit(this)"
+                data-id="{{ e.id }}" data-type="{{ e.entry_type }}"
+                data-points="{{ e.points_delta if e.points_delta >= 0 else -e.points_delta }}"
+                data-money="{{ e.money_nt if e.money_nt is not none else '' }}"
+                data-note="{{ e.note or '' }}"
+                {% if e.source_real_txn_id %}data-locked="1"{% endif %}>編輯</button>
+              {% endif %}
+              <button class="link danger" onclick="delEntry({{ e.id }})">刪除</button>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>

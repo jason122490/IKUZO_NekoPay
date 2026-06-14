@@ -14,7 +14,15 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from sqlalchemy import select
 
-from app.api import actions, admin, analytics, attribution, auth, members
+from app.api import (
+    actions,
+    admin,
+    analytics,
+    attribution,
+    auth,
+    ledger,
+    members,
+)
 from app.config import get_settings
 from app.db import Base, SessionLocal, engine
 from app.models.auth import UserSession
@@ -145,6 +153,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(members.router)
     app.include_router(actions.router)
+    app.include_router(ledger.router)
     app.include_router(admin.router)
     app.include_router(analytics.router)
     app.include_router(attribution.router)

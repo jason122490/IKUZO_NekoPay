@@ -136,3 +136,41 @@ async function deleteMember(id) {
   if (!confirm("確定「永久刪除」此帳號？無法復原。\n（若該帳號已有交易紀錄，系統會擋下並建議改用停用）")) return;
   if (await NK.del(`/api/members/${id}`)) { alert("已刪除"); NK.reload(); }
 }
+
+// ---- edit / delete a ledger record ----
+function delEntry(id) {
+  if (!confirm("確定刪除這筆紀錄？\n（轉點會一併刪除另一方；已歸戶的會釋放回真實紀錄）")) return;
+  NK.del(`/api/ledger/${id}`).then(r => { if (r) NK.reload(); });
+}
+
+function startEdit(btn) {
+  const id = btn.dataset.id, type = btn.dataset.type;
+  const locked = btn.dataset.locked === "1";
+  const isTopup = type === "TOPUP";
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  let fields = `<label>點數（${type}）<input id="ed_points" type="number" ${locked ? "disabled" : ""}></label>`;
+  if (isTopup) fields += `<label>金額 NT$<input id="ed_money" type="number" step="0.01" ${locked ? "disabled" : ""}></label>`;
+  fields += `<label>備註<input id="ed_note" type="text"></label>`;
+  const lockNote = locked
+    ? `<p class="muted">此筆已歸戶到真實紀錄，金額不可改（可改備註，或刪除後重新歸戶）。</p>` : "";
+  overlay.innerHTML = `<div class="modal"><h3>編輯紀錄</h3>${fields}${lockNote}` +
+    `<div class="modal-actions"><button class="primary" id="ed_save">儲存</button>` +
+    `<button class="link" id="ed_cancel">取消</button></div></div>`;
+  document.body.appendChild(overlay);
+  // set values via properties (avoids HTML-injection in attribute values)
+  overlay.querySelector("#ed_points").value = btn.dataset.points || "";
+  if (isTopup) overlay.querySelector("#ed_money").value = btn.dataset.money || "";
+  overlay.querySelector("#ed_note").value = btn.dataset.note || "";
+  const close = () => document.body.removeChild(overlay);
+  overlay.querySelector("#ed_cancel").onclick = close;
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+  overlay.querySelector("#ed_save").onclick = async () => {
+    const body = { note: overlay.querySelector("#ed_note").value };
+    if (!locked) {
+      body.points = +overlay.querySelector("#ed_points").value;
+      if (isTopup) body.money_nt = overlay.querySelector("#ed_money").value;
+    }
+    if (await NK.post(`/api/ledger/${id}/edit`, body)) { close(); NK.reload(); }
+  };
+}

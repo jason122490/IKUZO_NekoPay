@@ -1,11 +1,17 @@
 """Server-rendered HTML pages (Jinja2). Actions POST to the JSON API via fetch."""
 from __future__ import annotations
 
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.util.time import utcnow
+
+EDIT_WINDOW = timedelta(minutes=30)
 
 from app.config import get_settings
 from app.db import get_session
@@ -90,20 +96,30 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
     positions = await compute_positions(session, rate)
     txns = settle(positions)
     my_balance = await ledger_service.get_balance(session, member.id)
-    recent = list(
+    entries = list(
         (await session.execute(
             select(LedgerEntry).where(LedgerEntry.member_id == member.id)
             .order_by(LedgerEntry.created_at.desc()).limit(15)
         )).scalars()
     )
-    recon = await reconcile_report(session) if member.role == "admin" else None
+    now = utcnow()
+    is_admin = member.role == "admin"
+    recent_rows = [
+        {
+            "e": e,
+            "can_modify": is_admin or (now - e.created_at) <= EDIT_WINDOW,
+            "is_transfer": e.transfer_group_id is not None,
+        }
+        for e in entries
+    ]
+    recon = await reconcile_report(session) if is_admin else None
     return templates.TemplateResponse(
         request,
         "dashboard.html",
         {
             "member": member, "csrf": csrf, "members": members,
             "positions": positions, "txns": txns, "rate": rate,
-            "my_balance": my_balance, "recent": recent, "recon": recon,
+            "my_balance": my_balance, "recent_rows": recent_rows, "recon": recon,
         },
     )
 
@@ -177,11 +193,13 @@ async def admin_member_detail(
             .order_by(LedgerEntry.created_at.desc()).limit(200)
         )).scalars()
     )
+    # admin views these, so every row is modifiable (no time limit)
+    rows = [{"e": e, "is_transfer": e.transfer_group_id is not None} for e in entries]
     return templates.TemplateResponse(
         request,
         "member_detail.html",
         {
-            "member": member, "csrf": csrf, "target": target, "entries": entries,
+            "member": member, "csrf": csrf, "target": target, "rows": rows,
             "balance": await ledger_service.get_balance(session, member_id),
             "money": await ledger_service.get_money_contributed(session, member_id),
         },

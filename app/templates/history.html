@@ -6,7 +6,7 @@
     <h2>真實交易歷史 <span class="muted">（本地累積，含白喵網站已不再回傳的舊紀錄）</span></h2>
     <p class="muted">
       本地共 <b>{{ total }}</b> 筆
-      {% if span[0] %}· 範圍 {{ span[0].strftime('%Y/%m/%d') }} ~ {{ span[1].strftime('%Y/%m/%d') }}{% endif %}
+      {% if span[0] %}· 範圍 {{ span[0] | localdt('%Y/%m/%d') }} ~ {{ span[1] | localdt('%Y/%m/%d') }}{% endif %}
       · 最後同步：{% if last_run %}<b class="{{ 'pos' if last_run.status=='ok' else 'neg' }}">{{ RUN_LABELS.get(last_run.status, last_run.status) }}</b>{% if last_age is not none %}（{{ last_age // 60 }} 分前）{% endif %}{% else %}尚未同步{% endif %}
     </p>
     <form method="get" action="/admin/history" class="filters">
@@ -33,7 +33,7 @@
       <tbody>
         {% for r in rows %}
         <tr>
-          <td>{{ r.occurred_at.strftime('%Y/%m/%d %H:%M') }}</td>
+          <td>{{ r.occurred_at | localdt('%Y/%m/%d %H:%M') }}</td>
           <td>{{ KIND_LABELS.get(r.kind, r.kind) }}</td>
           <td>{{ r.raw_name }}</td>
           <td class="{{ 'pos' if r.value >= 0 else 'neg' }}">{{ r.value }}</td>
@@ -53,7 +53,7 @@
       <tbody>
         {% for s in recent_runs %}
         <tr>
-          <td>{{ s.started_at.strftime('%m/%d %H:%M:%S') }}</td>
+          <td>{{ s.started_at | localdt('%m/%d %H:%M:%S') }}</td>
           <td class="{{ 'pos' if s.status=='ok' else 'neg' }}">{{ RUN_LABELS.get(s.status, s.status) }}</td>
           <td>{{ s.rows_seen }}</td>
           <td>{{ s.rows_inserted }}</td>

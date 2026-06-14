@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.util.time import utcnow
+from app.util.time import local_to_utc, to_local, utcnow
 
 from app.config import get_settings
 from app.db import get_session
@@ -32,7 +32,7 @@ from app.services.settlement import compute_positions, settle
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
 # bump to force browsers to re-fetch static CSS/JS after changes
-templates.env.globals["asset_v"] = "13"
+templates.env.globals["asset_v"] = "14"
 # Chinese labels for enum values shown in the UI
 templates.env.globals["ENTRY_LABELS"] = {
     "TOPUP": "儲值", "PLAY": "投幣", "TRANSFER_IN": "轉入",
@@ -47,6 +47,16 @@ templates.env.globals["RUN_LABELS"] = {
     "transport_failed": "連線失敗", "partial": "部分失敗",
 }
 settings = get_settings()
+
+
+def _localdt(dt, fmt: str = "%m/%d %H:%M") -> str:
+    """Render a stored naive-UTC datetime in the app timezone (e.g. Taipei)."""
+    if dt is None:
+        return ""
+    return to_local(dt, settings.app_timezone).strftime(fmt)
+
+
+templates.env.filters["localdt"] = _localdt
 
 
 async def _current(request: Request, session: AsyncSession):
@@ -326,12 +336,12 @@ async def admin_history_csv(
                 "last_seen_at"])
     for r in rows:
         w.writerow([
-            r.occurred_at.isoformat(sep=" ") if r.occurred_at else "",
+            _localdt(r.occurred_at, "%Y-%m-%d %H:%M:%S"),
             r.kind, r.shop, r.machine or "", r.value, r.pay_type or "",
             r.attribution_status,
             members_map.get(r.attributed_member_id, "") if r.attributed_member_id else "",
-            r.first_seen_at.isoformat(sep=" ") if r.first_seen_at else "",
-            r.last_seen_at.isoformat(sep=" ") if r.last_seen_at else "",
+            _localdt(r.first_seen_at, "%Y-%m-%d %H:%M:%S"),
+            _localdt(r.last_seen_at, "%Y-%m-%d %H:%M:%S"),
         ])
     return Response(
         content="﻿" + buf.getvalue(),  # BOM so Excel reads UTF-8 (Chinese)

@@ -89,6 +89,7 @@ class PlayIn(BaseModel):
     note: str | None = None
     idempotency_key: str | None = None
     allow_negative: bool = False
+    occurred_at: datetime | None = None  # local time; defaults to now if omitted
 
 
 class TransferIn(BaseModel):
@@ -97,6 +98,7 @@ class TransferIn(BaseModel):
     points: int = Field(gt=0)
     note: str | None = None
     idempotency_key: str | None = None
+    occurred_at: datetime | None = None  # local time; defaults to now if omitted
 
 
 class AdjustmentIn(BaseModel):

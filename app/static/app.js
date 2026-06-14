@@ -23,6 +23,17 @@ window.NK = {
 
 function val(id) { return document.getElementById(id).value; }
 
+// datetime-local helpers for the optional 指定時間 fields
+function nowLocalValue() {
+  const d = new Date(), pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+         `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function timeVal(id) {
+  const el = document.getElementById(id);
+  return el && el.value ? { occurred_at: el.value } : {};
+}
+
 // Reliable in-page replacement for prompt() (browsers can suppress prompt()).
 function inputModal(title, placeholder, type) {
   return new Promise((resolve) => {
@@ -149,7 +160,7 @@ async function doPlay() {
     if (await NK.post(`/api/attribution/self/${chosen}`, {})) NK.reload();
     return;
   }
-  if (await NK.post("/api/plays", { member_id, points, note })) NK.reload();
+  if (await NK.post("/api/plays", { member_id, points, note, ...timeVal("pl_time") })) NK.reload();
 }
 
 async function toggleAutoAttribute() {
@@ -161,7 +172,8 @@ async function toggleAutoAttribute() {
 async function doTransfer() {
   const f = +val("tr_from"), t = +val("tr_to");
   if (f === t) { alert("不能轉給自己"); return; }
-  const ok = await NK.post("/api/transfers", { from_member_id: f, to_member_id: t, points: +val("tr_points") });
+  const ok = await NK.post("/api/transfers",
+    { from_member_id: f, to_member_id: t, points: +val("tr_points"), ...timeVal("tr_time") });
   if (ok) NK.reload();
 }
 
@@ -301,3 +313,9 @@ function startEdit(btn) {
 
 // initialize the top-up points preview if the field is present
 if (document.getElementById("tu_money")) updateTopupPreview();
+
+// default the optional 指定時間 fields to the current local time
+["pl_time", "tr_time"].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el && !el.value) el.value = nowLocalValue();
+});

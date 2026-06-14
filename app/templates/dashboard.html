@@ -46,6 +46,8 @@
     {% endif %}
     <label>點數<input id="pl_points" type="number" min="1" value="3"></label>
     <label>備註（機台）<input id="pl_note" type="text" placeholder="竹喵店 - Chunithm"></label>
+    <label>時間<input id="pl_time" type="datetime-local"></label>
+    <span class="muted">預設為現在；若自動歸戶成功，會改用歸戶紀錄的時間。</span>
     <button class="primary" onclick="doPlay()">投幣</button>
   </section>
 
@@ -84,6 +86,7 @@
       </select>
     </label>
     <label>點數<input id="tr_points" type="number" min="1" value="10"></label>
+    <label>時間<input id="tr_time" type="datetime-local"></label>
     <button class="primary" onclick="doTransfer()">轉點</button>
   </section>
 
@@ -111,7 +114,7 @@
             {% endif %}
             <button class="link danger" onclick="delEntry({{ e.id }})">刪除</button>
           </td>
-          <td>{{ e.created_at.strftime('%m/%d %H:%M') }}</td>
+          <td>{{ e.created_at | localdt }}</td>
           <td>{{ ENTRY_LABELS.get(e.entry_type, e.entry_type) }}</td>
           <td class="{{ 'pos' if e.source_real_txn_id else 'muted' }}">{{ '是' if e.source_real_txn_id else '否' }}</td>
           <td class="{{ 'pos' if e.points_delta >= 0 else 'neg' }}">{{ e.points_delta }}</td>

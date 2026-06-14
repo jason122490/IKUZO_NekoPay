@@ -330,3 +330,31 @@ async def test_edit_attributed_amount_blocked_note_ok(ctx):
     r = await c.post(f"/api/ledger/{entry['id']}/edit", headers=h, json={"note": "fixed"})
     assert r.status_code == 200 and r.json()["note"] == "fixed"
     await c.aclose()
+
+
+async def test_play_accepts_specified_local_time(ctx):
+    # a member-entered local (Taipei) time is stored as naive UTC: 18:00 -> 10:00
+    transport, _ = ctx
+    c, h = await _login(transport)
+    bob = await _id(c, "bob@nekopay.app")
+    await c.post("/api/topups", headers=h, json={"member_id": bob, "money_nt": 100})
+    r = await c.post("/api/plays", headers=h, json={
+        "member_id": bob, "points": 3, "occurred_at": "2026-06-10T18:00"})
+    assert r.status_code == 200
+    assert r.json()["created_at"].startswith("2026-06-10T10:00")
+    await c.aclose()
+
+
+async def test_transfer_accepts_specified_local_time(ctx):
+    transport, _ = ctx
+    admin, ah = await _login(transport, "admin@nekopay.app")
+    adm = await _id(admin, "admin@nekopay.app")
+    bob = await _id(admin, "bob@nekopay.app")
+    await admin.post("/api/topups", headers=ah, json={"member_id": adm, "money_nt": 1000})
+    r = await admin.post("/api/transfers", headers=ah, json={
+        "from_member_id": adm, "to_member_id": bob, "points": 5,
+        "occurred_at": "2026-06-10T18:00"})
+    assert r.status_code == 200
+    assert r.json()["out_entry"]["created_at"].startswith("2026-06-10T10:00")
+    assert r.json()["in_entry"]["created_at"].startswith("2026-06-10T10:00")
+    await admin.aclose()

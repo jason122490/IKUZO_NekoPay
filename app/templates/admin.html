@@ -36,7 +36,7 @@
       <tbody>
         {% for r in unattributed %}
         <tr>
-          <td>{{ r.occurred_at.strftime('%m/%d %H:%M') }}</td>
+          <td>{{ r.occurred_at | localdt }}</td>
           <td>{{ KIND_LABELS.get(r.kind, r.kind) }}</td>
           <td>{{ r.raw_name }}</td>
           <td class="{{ 'pos' if r.value >= 0 else 'neg' }}">{{ r.value }}</td>

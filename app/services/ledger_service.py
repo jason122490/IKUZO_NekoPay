@@ -10,6 +10,7 @@ Invariants enforced here (not just in the DB):
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import func, select
@@ -131,6 +132,7 @@ async def record_play(
     idempotency_key: str | None = None,
     allow_negative: bool = False,
     source_real_txn_id: int | None = None,
+    created_at: datetime | None = None,
 ) -> LedgerEntry:
     if points <= 0:
         raise ValidationError("points must be positive")
@@ -156,6 +158,8 @@ async def record_play(
         source_real_txn_id=source_real_txn_id,
         idempotency_key=idempotency_key,
     )
+    if created_at is not None:
+        entry.created_at = created_at
     return await _commit_entry(session, entry, idempotency_key)
 
 
@@ -169,6 +173,7 @@ async def transfer(
     note: str | None = None,
     idempotency_key: str | None = None,
     allow_negative: bool = False,
+    created_at: datetime | None = None,
 ) -> tuple[LedgerEntry, LedgerEntry]:
     if points <= 0:
         raise ValidationError("points must be positive")
@@ -217,6 +222,9 @@ async def transfer(
         transfer_group_id=group_id,
         idempotency_key=(f"{idempotency_key}:in" if idempotency_key else None),
     )
+    if created_at is not None:
+        out_row.created_at = created_at
+        in_row.created_at = created_at
     session.add_all([out_row, in_row])
     try:
         await session.commit()
@@ -233,6 +241,7 @@ async def transfer(
                 note=note,
                 idempotency_key=idempotency_key,
                 allow_negative=allow_negative,
+                created_at=created_at,
             )
         raise
     await session.refresh(out_row)

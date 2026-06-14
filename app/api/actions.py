@@ -12,6 +12,7 @@ from app.models.user import Member
 from app.schemas import LedgerEntryOut, PlayIn, TopUpIn, TransferIn, TransferOut
 from app.security import get_current_member, verify_csrf
 from app.services import config_service, ledger_service
+from app.util.time import local_to_utc
 from app.vip import bonus_pct_for, topup_breakdown
 
 router = APIRouter(prefix="/api", tags=["actions"], dependencies=[Depends(verify_csrf)])
@@ -69,6 +70,10 @@ async def create_play(
         raise HTTPException(status_code=403, detail="cannot play for another member")
     # only admins may force a negative balance (deliberate debt)
     allow_negative = payload.allow_negative and _is_admin(viewer)
+    created_at = (
+        local_to_utc(payload.occurred_at, settings.app_timezone)
+        if payload.occurred_at is not None else None
+    )
     entry = await ledger_service.record_play(
         session,
         member_id=payload.member_id,
@@ -77,6 +82,7 @@ async def create_play(
         note=payload.note,
         idempotency_key=payload.idempotency_key,
         allow_negative=allow_negative,
+        created_at=created_at,
     )
     return LedgerEntryOut.model_validate(entry)
 
@@ -91,6 +97,10 @@ async def create_transfer(
         raise HTTPException(
             status_code=403, detail="can only transfer from your own account"
         )
+    created_at = (
+        local_to_utc(payload.occurred_at, settings.app_timezone)
+        if payload.occurred_at is not None else None
+    )
     out_row, in_row = await ledger_service.transfer(
         session,
         from_member_id=payload.from_member_id,
@@ -99,6 +109,7 @@ async def create_transfer(
         created_by=viewer.id,
         note=payload.note,
         idempotency_key=payload.idempotency_key,
+        created_at=created_at,
     )
     return TransferOut(
         transfer_group_id=out_row.transfer_group_id,

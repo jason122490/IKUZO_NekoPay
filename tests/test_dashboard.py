@@ -51,8 +51,10 @@ async def _login(transport, username):
 
 
 # requested layout: 餘額/總消費 -> 投幣 -> 儲值 -> 轉點 -> 近期紀錄 -> 自動歸戶 -> 成員餘額
-ORDER = ["我的餘額 / 總消費", "投幣", "儲值", "轉點",
-         "我的近期紀錄", "自動歸戶", "成員餘額與分帳"]
+# match on section headers (the rate note also contains "儲值", so substrings
+# alone are ambiguous)
+ORDER = ["<h2>我的餘額 / 總消費", "<h2>投幣", "<h2>儲值", "<h2>轉點",
+         "<h2>我的近期紀錄", 'id="aa_toggle"', "<h2>成員餘額與分帳"]
 
 
 def _assert_order(html: str):
@@ -72,6 +74,21 @@ async def test_member_dashboard_section_order(ctx):
     await bob.aclose()
 
 
+async def test_dashboard_uses_personal_rate_for_nt(ctx):
+    c = httpx.AsyncClient(transport=ctx, base_url="http://t")
+    r = await c.post("/api/auth/login", json={"username": "bob", "password": "secret1"})
+    h = {"X-CSRF-Token": r.json()["csrf_token"]}
+    bob = next(m["id"] for m in (await c.get("/api/members")).json()
+               if m["username"] == "bob")
+    # pay NT$305 for 30 points -> personal rate 10.17; balance worth 305, not 300
+    await c.post("/api/topups", headers=h, json={"member_id": bob, "money_nt": 305})
+    page = (await c.get("/dashboard")).text
+    assert "依你的平均儲值匯率 10.17 元/點" in page
+    assert "NT$ 305" in page
+    assert "NT$ 300" not in page  # would be the global-rate value
+    await c.aclose()
+
+
 async def test_footer_on_login_page(ctx):
     c = httpx.AsyncClient(transport=ctx, base_url="http://t")
     r = await c.get("/login")
@@ -87,5 +104,5 @@ async def test_admin_dashboard_renders_with_recon(ctx):
     assert r.status_code == 200
     _assert_order(r.text)
     # admin-only reconciliation card sits between 自動歸戶 and 成員餘額
-    assert r.text.find("對帳（管理員）") < r.text.find("成員餘額與分帳")
+    assert r.text.find("<h2>對帳（管理員）") < r.text.find("<h2>成員餘額與分帳")
     await admin.aclose()

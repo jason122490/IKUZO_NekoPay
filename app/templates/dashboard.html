@@ -17,14 +17,15 @@
       <div>
         <div class="muted">餘額</div>
         <div class="big">{{ my_balance }} <span class="muted" style="font-size:14px">點</span></div>
-        <div class="muted">≈ NT$ {{ (my_balance * rate) }}</div>
+        <div class="muted">≈ NT$ {{ my_balance_nt }}</div>
       </div>
       <div>
         <div class="muted">總消費</div>
         <div class="big neg">{{ total_spent }} <span class="muted" style="font-size:14px">點</span></div>
-        <div class="muted">≈ NT$ {{ (total_spent * rate) }}</div>
+        <div class="muted">≈ NT$ {{ total_spent_nt }}</div>
       </div>
     </div>
+    <p class="muted">{% if has_personal_rate %}依你的平均儲值匯率 {{ my_rate_display }} 元/點{% else %}尚無儲值，採用預設匯率 {{ my_rate_display }} 元/點{% endif %}</p>
     {% if spend_labels %}
     <div class="chart-box"><canvas id="spendChart"></canvas></div>
     {% else %}

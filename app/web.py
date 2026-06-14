@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import io
+from decimal import ROUND_HALF_UP, Decimal
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -139,6 +140,23 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
     spend_values = [int(r[1]) for r in spend_rows]
     total_spent = sum(spend_values)
 
+    # personal exchange rate: NT$ actually paid per point, from this member's
+    # own top-ups (money / points). Falls back to the global rate if none yet.
+    topup_money, topup_points = (await session.execute(
+        select(
+            func.coalesce(func.sum(LedgerEntry.money_nt), 0),
+            func.coalesce(func.sum(LedgerEntry.points_delta), 0),
+        ).where(
+            LedgerEntry.member_id == member.id,
+            LedgerEntry.money_nt.is_not(None),
+        )
+    )).one()
+    has_personal_rate = int(topup_points) > 0
+    my_rate = (Decimal(str(topup_money)) / int(topup_points)) if has_personal_rate else rate
+    my_balance_nt = (Decimal(my_balance) * my_rate).quantize(Decimal("1"), ROUND_HALF_UP)
+    total_spent_nt = (Decimal(total_spent) * my_rate).quantize(Decimal("1"), ROUND_HALF_UP)
+    my_rate_display = my_rate.quantize(Decimal("0.01"))
+
     entries = list(
         (await session.execute(
             select(LedgerEntry).where(LedgerEntry.member_id == member.id)
@@ -171,6 +189,8 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
             "my_balance": my_balance, "recent_rows": recent_rows, "recon": recon,
             "spend_labels": spend_labels, "spend_values": spend_values,
             "total_spent": total_spent, "vip_bonus_pct": vip_bonus_pct,
+            "my_balance_nt": my_balance_nt, "total_spent_nt": total_spent_nt,
+            "my_rate_display": my_rate_display, "has_personal_rate": has_personal_rate,
             "bonus_min_topup": BONUS_MIN_TOPUP,
         },
     )

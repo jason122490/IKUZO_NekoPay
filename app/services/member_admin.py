@@ -276,18 +276,22 @@ async def reset_database(session: AsyncSession, *, keep_member_id: int) -> None:
     transactions, snapshots, sync runs/state, claims, audit log, and app
     settings. Irreversible.
     """
-    await session.execute(delete(LedgerEntry))
+    # Order matters with FK enforcement on (production): clear children first,
+    # and break the ledger self-reference before the bulk delete.
+    await session.execute(update(LedgerEntry).values(reversal_of_id=None))
     await session.execute(delete(AttributionClaim))
+    await session.execute(delete(LedgerEntry))
     await session.execute(delete(RealTransaction))
     await session.execute(delete(AccountSnapshot))
     await session.execute(delete(SyncRun))
     await session.execute(delete(SyncState))
     await session.execute(delete(AuditLog))
     await session.execute(delete(AppSetting))
-    await session.execute(delete(Member).where(Member.id != keep_member_id))
+    # sessions reference members -> delete them before the members
     await session.execute(
         delete(UserSession).where(UserSession.member_id != keep_member_id)
     )
+    await session.execute(delete(Member).where(Member.id != keep_member_id))
     await audit_service.record(
         session, actor_id=keep_member_id, action="db.reset", target_type="db"
     )

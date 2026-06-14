@@ -112,7 +112,8 @@ class EditEntryIn(BaseModel):
 
 
 class LinkRealIn(BaseModel):
-    real_txn_id: int  # 補歸戶: real transaction to link an existing entry to
+    real_txn_id: int  # 歸戶: real transaction to link an existing entry to
+    overwrite_note: bool = False  # overwrite the note with the real txn's name
 
 
 class LedgerEntryOut(BaseModel):

@@ -235,7 +235,11 @@ async function supplementAttribute(btn) {
   if (!res.candidates.length) { alert("找不到金額相同且尚未歸戶的真實紀錄"); return; }
   const chosen = await pickCandidate(res.candidates);
   if (chosen === "manual" || chosen === "cancel") return;
-  if (await NK.post(`/api/ledger/${id}/attribute`, { real_txn_id: chosen })) NK.reload();
+  const cand = res.candidates.find(c => c.id === chosen);
+  const overwrite_note = confirm(
+    `是否將備註覆蓋為「${cand ? cand.raw_name : ''}」？\n確定＝覆蓋；取消＝保留原本備註`);
+  if (await NK.post(`/api/ledger/${id}/attribute`,
+                    { real_txn_id: chosen, overwrite_note })) NK.reload();
 }
 
 async function deleteMember(id) {

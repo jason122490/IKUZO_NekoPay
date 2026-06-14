@@ -249,13 +249,18 @@ async def test_supplement_attribute_links_manual_entry(ctx):
                          json={"member_id": bob, "points": 3})).json()
     assert play["source_real_txn_id"] is None
     rid = await _seed_real(maker, -3, "sa1")
-    # 補歸戶: link the manual play to the matching real txn
+    # 歸戶: link the manual play, overwriting the note with the real txn's name
     r = await c.post(f"/api/ledger/{play['id']}/attribute", headers=h,
-                     json={"real_txn_id": rid})
-    assert r.status_code == 200 and r.json()["source_real_txn_id"] == rid
+                     json={"real_txn_id": rid, "overwrite_note": True})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["source_real_txn_id"] == rid
+    assert body["note"] == "竹喵店 - Chunithm"  # note overwritten
     async with maker() as s:
         rt = await s.get(RealTransaction, rid)
+        e = await s.get(LedgerEntry, play["id"])
         assert rt.attribution_status == "attributed" and rt.attributed_member_id == bob
+        assert e.created_at == rt.occurred_at  # entry inherited the real txn's time
     await c.aclose()
 
 

@@ -39,7 +39,8 @@ async def attribute_existing(
     session: AsyncSession = Depends(get_session),
 ) -> LedgerEntryOut:
     entry = await ledger_edit.attribute_existing(
-        session, actor=member, entry_id=entry_id, real_txn_id=payload.real_txn_id
+        session, actor=member, entry_id=entry_id, real_txn_id=payload.real_txn_id,
+        overwrite_note=payload.overwrite_note,
     )
     return LedgerEntryOut.model_validate(entry)
 

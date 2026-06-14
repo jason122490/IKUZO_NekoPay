@@ -158,13 +158,19 @@ async def edit_entry(
 
 
 async def attribute_existing(
-    session: AsyncSession, *, actor: Member, entry_id: int, real_txn_id: int
+    session: AsyncSession,
+    *,
+    actor: Member,
+    entry_id: int,
+    real_txn_id: int,
+    overwrite_note: bool = False,
 ) -> LedgerEntry:
-    """補歸戶: link an existing manual top-up/play entry to a matching real txn.
+    """歸戶: link an existing manual top-up/play entry to a matching real txn.
 
     Marks the real txn attributed to the entry's owner and links it back, so a
     previously evidence-less manual entry becomes reconciled. The points/kind
-    must match the real transaction.
+    must match. The entry inherits the real transaction's time; the note is
+    optionally overwritten with the real transaction's name.
     """
     entry = await session.get(LedgerEntry, entry_id)
     if entry is None:
@@ -192,6 +198,9 @@ async def attribute_existing(
         raise ValidationError("點數不符")
 
     entry.source_real_txn_id = rt.id
+    entry.created_at = rt.occurred_at  # 繼承真實交易（歸戶）的時間
+    if overwrite_note:
+        entry.note = rt.raw_name  # 覆蓋為歸戶預設備註（店/機台）
     rt.attribution_status = AttributionStatus.ATTRIBUTED.value
     rt.attributed_member_id = entry.member_id
     rt.attributed_by = actor.id

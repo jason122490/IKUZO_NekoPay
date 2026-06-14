@@ -3,8 +3,23 @@
 {% block content %}
 <div class="grid">
   <section class="card wide">
+    <h2>共用卡目前等級</h2>
+    {% if vip %}
+      <p class="big">{{ vip.name }}
+        {% if vip.is_premium %}<span class="pos" style="font-size:14px">Premium</span>
+        {% else %}<span class="muted" style="font-size:14px">普卡</span>{% endif %}</p>
+      {% if vip.next_name %}
+        <p class="muted">下一級 <b>{{ vip.next_name }}</b>：累積儲值 NT$ {{ vip.next_value }}</p>
+      {% else %}
+        <p class="muted">已達最高等級 🎉</p>
+      {% endif %}
+    {% else %}
+      <p class="muted">尚未同步 VIP 資訊（管理員可在「歸戶/對帳」按立即同步）。</p>
+    {% endif %}
+  </section>
+
+  <section class="card wide">
     <h2>VIP 等級表 <span class="muted">（2026 上半年度 Premium）</span></h2>
-    {% if current %}<p class="muted">共用卡目前等級：<b>{{ current }}</b></p>{% endif %}
     <table>
       <thead>
         <tr><th>等級</th><th>卡別</th><th>儲值回饋<br><span class="muted">單次滿$300</span></th>

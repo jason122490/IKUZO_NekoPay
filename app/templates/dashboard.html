@@ -39,20 +39,6 @@
   </section>
 
   <section class="card">
-    <h2>共用卡 VIP <a href="/vip" class="muted" style="font-size:13px">查看等級表 →</a></h2>
-    {% if vip %}
-      <p class="big">{{ vip.name }} {% if vip.is_premium %}<span class="pos" style="font-size:14px">Premium</span>{% else %}<span class="muted" style="font-size:14px">普卡</span>{% endif %}</p>
-      {% if vip.next_name %}
-        <p class="muted">下一級 <b>{{ vip.next_name }}</b>：累積儲值 NT$ {{ vip.next_value }}</p>
-      {% else %}
-        <p class="muted">已達最高等級 🎉</p>
-      {% endif %}
-    {% else %}
-      <p class="muted">尚未同步 VIP 資訊（管理員可在「歸戶/對帳」按立即同步）。</p>
-    {% endif %}
-  </section>
-
-  <section class="card">
     <h2>儲值 <span class="muted">輸入點數（金額依匯率換算）</span></h2>
     {% if member.role == 'admin' %}
     <label>成員

@@ -136,19 +136,6 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
     ]
     recon = await reconcile_report(session) if is_admin else None
 
-    snap = (await session.execute(
-        select(AccountSnapshot).order_by(AccountSnapshot.captured_at.desc()).limit(1)
-    )).scalar_one_or_none()
-    vip = None
-    if snap is not None and snap.vip_name:
-        nxt = vip_next_tier(snap.vip_name)
-        vip = {
-            "name": snap.vip_name,
-            "is_premium": snap.is_premium,
-            "next_value": snap.vip_next_value,
-            "next_name": nxt["name"] if nxt else None,
-        }
-
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -156,7 +143,7 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
             "member": member, "csrf": csrf, "members": members,
             "positions": positions, "txns": txns, "rate": rate,
             "my_balance": my_balance, "recent_rows": recent_rows, "recon": recon,
-            "vip": vip, "spend_labels": spend_labels, "spend_values": spend_values,
+            "spend_labels": spend_labels, "spend_values": spend_values,
             "total_spent": total_spent,
         },
     )
@@ -170,10 +157,21 @@ async def vip_page(request: Request, session: AsyncSession = Depends(get_session
     snap = (await session.execute(
         select(AccountSnapshot).order_by(AccountSnapshot.captured_at.desc()).limit(1)
     )).scalar_one_or_none()
-    current = snap.vip_name if snap else None
+    vip = None
+    if snap is not None and snap.vip_name:
+        nxt = vip_next_tier(snap.vip_name)
+        vip = {
+            "name": snap.vip_name,
+            "is_premium": snap.is_premium,
+            "next_value": snap.vip_next_value,
+            "next_name": nxt["name"] if nxt else None,
+        }
     return templates.TemplateResponse(
         request, "vip.html",
-        {"member": member, "csrf": csrf, "tiers": VIP_TIERS, "current": current},
+        {
+            "member": member, "csrf": csrf, "tiers": VIP_TIERS,
+            "current": snap.vip_name if snap else None, "vip": vip,
+        },
     )
 
 

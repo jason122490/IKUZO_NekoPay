@@ -141,7 +141,7 @@ async function doTopup() {
     if (await NK.post(`/api/attribution/self/${chosen}`, { money_nt: money })) NK.reload();
     return;
   }
-  if (await NK.post("/api/topups", { member_id, money_nt: money })) NK.reload();
+  if (await NK.post("/api/topups", { member_id, money_nt: money, ...timeVal("tu_time") })) NK.reload();
 }
 
 async function setRate() {
@@ -173,7 +173,7 @@ async function doTransfer() {
   const f = +val("tr_from"), t = +val("tr_to");
   if (f === t) { alert("不能轉給自己"); return; }
   const ok = await NK.post("/api/transfers",
-    { from_member_id: f, to_member_id: t, points: +val("tr_points"), ...timeVal("tr_time") });
+    { from_member_id: f, to_member_id: t, points: +val("tr_points") });
   if (ok) NK.reload();
 }
 
@@ -315,7 +315,7 @@ function startEdit(btn) {
 if (document.getElementById("tu_money")) updateTopupPreview();
 
 // default the optional 指定時間 fields to the current local time
-["pl_time", "tr_time"].forEach((id) => {
+["pl_time", "tu_time"].forEach((id) => {
   const el = document.getElementById(id);
   if (el && !el.value) el.value = nowLocalValue();
 });

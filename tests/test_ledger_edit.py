@@ -345,16 +345,13 @@ async def test_play_accepts_specified_local_time(ctx):
     await c.aclose()
 
 
-async def test_transfer_accepts_specified_local_time(ctx):
+async def test_topup_accepts_specified_local_time(ctx):
+    # 儲值 local (Taipei) time is stored as naive UTC: 18:00 -> 10:00
     transport, _ = ctx
-    admin, ah = await _login(transport, "admin@nekopay.app")
-    adm = await _id(admin, "admin@nekopay.app")
-    bob = await _id(admin, "bob@nekopay.app")
-    await admin.post("/api/topups", headers=ah, json={"member_id": adm, "money_nt": 1000})
-    r = await admin.post("/api/transfers", headers=ah, json={
-        "from_member_id": adm, "to_member_id": bob, "points": 5,
-        "occurred_at": "2026-06-10T18:00"})
+    c, h = await _login(transport)
+    bob = await _id(c, "bob@nekopay.app")
+    r = await c.post("/api/topups", headers=h, json={
+        "member_id": bob, "money_nt": 100, "occurred_at": "2026-06-10T18:00"})
     assert r.status_code == 200
-    assert r.json()["out_entry"]["created_at"].startswith("2026-06-10T10:00")
-    assert r.json()["in_entry"]["created_at"].startswith("2026-06-10T10:00")
-    await admin.aclose()
+    assert r.json()["created_at"].startswith("2026-06-10T10:00")
+    await c.aclose()

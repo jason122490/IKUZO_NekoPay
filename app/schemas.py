@@ -61,6 +61,7 @@ class TopUpIn(BaseModel):
     money_nt: Decimal = Field(gt=0)  # NT$ paid; points = floor(money/rate) + VIP bonus
     note: str | None = None
     idempotency_key: str | None = None
+    occurred_at: datetime | None = None  # local time; defaults to now if omitted
 
 
 class RateIn(BaseModel):
@@ -98,7 +99,6 @@ class TransferIn(BaseModel):
     points: int = Field(gt=0)
     note: str | None = None
     idempotency_key: str | None = None
-    occurred_at: datetime | None = None  # local time; defaults to now if omitted
 
 
 class AdjustmentIn(BaseModel):

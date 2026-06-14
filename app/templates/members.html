@@ -43,6 +43,7 @@
             {% endif %}
             <button class="link" onclick="resetPwd({{ r.m.id }})">重設密碼</button>
             <button class="link" onclick="renameMember({{ r.m.id }})">改暱稱</button>
+            {% if r.m.id != member.id %}<button class="link danger" onclick="deleteMember({{ r.m.id }})">刪除</button>{% endif %}
           </td>
         </tr>
         {% endfor %}

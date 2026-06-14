@@ -11,6 +11,13 @@ window.NK = {
     if (!r.ok) { alert((data && data.detail) || ("錯誤 " + r.status)); return null; }
     return data;
   },
+  async del(url) {
+    const r = await fetch(url, { method: "DELETE", headers: { "X-CSRF-Token": window.CSRF } });
+    let data = null;
+    try { data = await r.json(); } catch (e) {}
+    if (!r.ok) { alert((data && data.detail) || ("錯誤 " + r.status)); return null; }
+    return data;
+  },
   reload() { location.reload(); },
 };
 
@@ -74,4 +81,8 @@ async function resetPwd(id) {
   if (await NK.post(`/api/members/${id}/reset-password`, { new_password: pwd })) {
     alert("已重設，對方需用新密碼重新登入"); NK.reload();
   }
+}
+async function deleteMember(id) {
+  if (!confirm("確定「永久刪除」此帳號？無法復原。\n（若該帳號已有交易紀錄，系統會擋下並建議改用停用）")) return;
+  if (await NK.del(`/api/members/${id}`)) { alert("已刪除"); NK.reload(); }
 }

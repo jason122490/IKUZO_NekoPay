@@ -25,6 +25,7 @@ button { margin-top:12px; padding:9px 14px; border-radius:9px; border:1px solid 
   background:#222a40; color:var(--ink); cursor:pointer; font-size:14px; }
 button.primary { background:var(--accent); border-color:var(--accent); color:#0b0f1a; font-weight:600; }
 button.link { background:none; border:none; color:var(--accent); padding:4px 6px; }
+button.link.danger { color:var(--neg); }
 .inline { display:inline; }
 table { width:100%; border-collapse:collapse; font-size:14px; }
 th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }

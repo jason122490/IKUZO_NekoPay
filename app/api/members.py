@@ -97,6 +97,20 @@ async def reset_member_password(
     return MessageOut(detail="password reset")
 
 
+@router.delete(
+    "/{member_id}", response_model=MessageOut, dependencies=[Depends(verify_csrf)]
+)
+async def delete_member(
+    member_id: int,
+    admin: Member = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+) -> MessageOut:
+    await member_admin.delete_member(
+        session, actor_id=admin.id, member_id=member_id
+    )
+    return MessageOut(detail="deleted")
+
+
 @router.get("", response_model=list[MemberOut])
 async def list_members(
     _viewer: Member = Depends(get_current_member),

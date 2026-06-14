@@ -135,6 +135,47 @@ async def test_admin_reset_password(ctx):
     await admin.aclose(); await c1.aclose()
 
 
+async def test_delete_account_with_no_history(ctx):
+    admin, csrf = await _login(ctx, "admin@nekopay.app", "secret1")
+    h = {"X-CSRF-Token": csrf}
+    # create a fresh account with no transactions, then delete it
+    await admin.post("/api/members", headers=h, json={
+        "email": "temp@nekopay.app", "display_name": "Temp", "password": "secret1"})
+    temp = await _id(admin, "temp@nekopay.app")
+    r = await admin.request("DELETE", f"/api/members/{temp}", headers=h)
+    assert r.status_code == 200, r.text
+    # gone from the list
+    emails = [m["email"] for m in (await admin.get("/api/members")).json()]
+    assert "temp@nekopay.app" not in emails
+    await admin.aclose()
+
+
+async def test_delete_blocked_when_member_has_history(ctx):
+    admin, csrf = await _login(ctx, "admin@nekopay.app", "secret1")
+    h = {"X-CSRF-Token": csrf}
+    bob = await _id(admin, "bob@nekopay.app")
+    await admin.post("/api/topups", headers=h,
+                     json={"member_id": bob, "points": 50, "money_nt": 50})
+    r = await admin.request("DELETE", f"/api/members/{bob}", headers=h)
+    assert r.status_code == 409  # has ledger history -> must disable instead
+    await admin.aclose()
+
+
+async def test_cannot_delete_self(ctx):
+    admin, csrf = await _login(ctx, "admin@nekopay.app", "secret1")
+    me = await _id(admin, "admin@nekopay.app")
+    r = await admin.request("DELETE", f"/api/members/{me}", headers={"X-CSRF-Token": csrf})
+    assert r.status_code == 400
+    await admin.aclose()
+
+
+async def test_member_cannot_delete_accounts(ctx):
+    bob_c, csrf = await _login(ctx, "bob@nekopay.app", "secret1")
+    r = await bob_c.request("DELETE", "/api/members/1", headers={"X-CSRF-Token": csrf})
+    assert r.status_code == 403
+    await bob_c.aclose()
+
+
 async def test_member_cannot_manage_accounts(ctx):
     bob_c, csrf = await _login(ctx, "bob@nekopay.app", "secret1")
     admin_id = 1

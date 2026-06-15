@@ -227,6 +227,14 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
     )
 
 
+@router.get("/help", response_class=HTMLResponse)
+async def help_page(request: Request, session: AsyncSession = Depends(get_session)):
+    member, csrf = await _current(request, session)
+    if member is None:
+        return RedirectResponse("/login", status_code=303)
+    return templates.TemplateResponse(request, "help.html", {"member": member, "csrf": csrf})
+
+
 @router.get("/records", response_class=HTMLResponse)
 async def my_records(
     request: Request,

@@ -28,6 +28,8 @@ class MemberOut(BaseModel):
     role: str
     is_active: bool
     auto_attribute: bool = True
+    anti_addiction: bool = True
+    daily_spend_limit: int = 30
 
 
 class MemberUpdateIn(BaseModel):
@@ -172,6 +174,11 @@ class SelfAttributeIn(BaseModel):
 
 class AutoAttributeIn(BaseModel):
     enabled: bool
+
+
+class AntiAddictionIn(BaseModel):
+    enabled: bool
+    daily_limit: int = Field(ge=1, le=100000)
 
 
 class IgnoreIn(BaseModel):

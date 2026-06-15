@@ -9,6 +9,9 @@
   window.IS_ADMIN = {{ 'true' if member.role == 'admin' else 'false' }};
   window.VIP_BONUS_PCT = {{ vip_bonus_pct }};
   window.BONUS_MIN_TOPUP = {{ bonus_min_topup }};
+  window.ANTI_ADDICTION = {{ 'true' if member.anti_addiction else 'false' }};
+  window.DAILY_LIMIT = {{ member.daily_spend_limit }};
+  window.TODAY_SPENT = {{ today_spent }};
 </script>
 <div class="grid">
 
@@ -30,6 +33,12 @@
         <div class="big neg">{{ total_spent }} <span class="muted" style="font-size:14px">點</span></div>
         <div class="muted">≈ NT$ {{ total_spent_nt }}</div>
         <div class="muted" title="{{ egg_title }}">≈ {{ (total_spent_nt / p0050)|round(1) }} 股 0050 📈</div>
+      </div>
+      <div>
+        <div class="muted" title="一天以 06:00 至隔日 06:00 計">今日消費</div>
+        <div class="big neg">{{ today_spent }} <span class="muted" style="font-size:14px">點</span></div>
+        <div class="muted">≈ NT$ {{ today_spent_nt }}</div>
+        <div class="muted" title="{{ egg_title }}">≈ {{ (today_spent_nt / p0050)|round(1) }} 股 0050 📈</div>
       </div>
     </div>
     <p class="muted">{% if has_personal_rate %}依你的平均儲值匯率 {{ my_rate_display }} 元/點{% else %}尚無儲值，採用預設匯率 {{ my_rate_display }} 元/點{% endif %}</p>
@@ -110,6 +119,19 @@
       自動歸戶
     </label>
     <span class="muted">開啟後，按「投幣/儲值」會先連線至白喵帳號，找出相同操作且尚未歸戶的紀錄供你選擇；找不到或選擇不歸戶則記為一般紀錄。</span>
+  </section>
+
+  <section class="card wide aa-bar">
+    <label class="switch">
+      <input type="checkbox" id="anti_toggle" {% if member.anti_addiction %}checked{% endif %} onchange="saveAntiAddiction()">
+      防沉迷
+    </label>
+    <label style="margin:0; display:inline-flex; align-items:center; gap:6px;">
+      每日點數上限
+      <input type="number" id="anti_limit" min="1" value="{{ member.daily_spend_limit }}"
+             style="width:90px; margin-top:0;" onchange="saveAntiAddiction()">
+    </label>
+    <span class="muted">開啟後，投幣若使今日消耗超過上限會跳出提醒（仍可強制繼續）。今日已消耗 {{ today_spent }} 點。</span>
   </section>
 
   {% if recon %}

@@ -7,7 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db import get_session
 from app.models.user import Member
-from app.schemas import AutoAttributeIn, LoginIn, LoginOut, MemberOut, MessageOut
+from app.schemas import (
+    AntiAddictionIn,
+    AutoAttributeIn,
+    LoginIn,
+    LoginOut,
+    MemberOut,
+    MessageOut,
+)
 from app.security import get_current_member, verify_csrf
 from app.services import auth_service
 
@@ -69,6 +76,21 @@ async def set_auto_attribute(
     session: AsyncSession = Depends(get_session),
 ) -> MemberOut:
     member.auto_attribute = payload.enabled
+    await session.commit()
+    await session.refresh(member)
+    return MemberOut.model_validate(member)
+
+
+@router.post(
+    "/anti-addiction", response_model=MemberOut, dependencies=[Depends(verify_csrf)]
+)
+async def set_anti_addiction(
+    payload: AntiAddictionIn,
+    member: Member = Depends(get_current_member),
+    session: AsyncSession = Depends(get_session),
+) -> MemberOut:
+    member.anti_addiction = payload.enabled
+    member.daily_spend_limit = payload.daily_limit
     await session.commit()
     await session.refresh(member)
     return MemberOut.model_validate(member)

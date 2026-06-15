@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.util.time import local_to_utc, to_local, utcnow
+from app.util.time import local_now, local_to_utc, to_local, utcnow
 
 from app.config import get_settings
 from app.db import get_session
@@ -34,7 +34,7 @@ from app.services.settlement import compute_positions
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
 # bump to force browsers to re-fetch static CSS/JS after changes
-templates.env.globals["asset_v"] = "22"
+templates.env.globals["asset_v"] = "24"
 # Chinese labels for enum values shown in the UI
 templates.env.globals["ENTRY_LABELS"] = {
     "TOPUP": "儲值", "PLAY": "投幣", "TRANSFER_IN": "轉入",
@@ -196,6 +196,22 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
     total_spent_nt = (Decimal(total_spent) * my_rate).quantize(Decimal("1"), ROUND_HALF_UP)
     my_rate_display = my_rate.quantize(Decimal("0.01"))
 
+    # today's spending — a "day" runs 06:00 to 06:00 next day (arcade business
+    # day). Before 06:00 local, we're still in the previous business day.
+    _local = local_now(settings.app_timezone)
+    _day_start = _local.replace(hour=6, minute=0, second=0, microsecond=0)
+    if _local < _day_start:
+        _day_start -= timedelta(days=1)
+    today_start = local_to_utc(_day_start, settings.app_timezone)
+    today_spent = int((await session.execute(
+        select(func.coalesce(func.sum(-LedgerEntry.points_delta), 0)).where(
+            LedgerEntry.member_id == member.id,
+            LedgerEntry.entry_type == EntryType.PLAY.value,
+            LedgerEntry.created_at >= today_start,
+        )
+    )).scalar_one())
+    today_spent_nt = (Decimal(today_spent) * my_rate).quantize(Decimal("1"), ROUND_HALF_UP)
+
     entries = list(
         (await session.execute(
             select(LedgerEntry).where(LedgerEntry.member_id == member.id)
@@ -223,6 +239,7 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
             "my_balance_nt": my_balance_nt, "total_spent_nt": total_spent_nt,
             "my_rate_display": my_rate_display, "has_personal_rate": has_personal_rate,
             "bonus_min_topup": BONUS_MIN_TOPUP, "price_0050": price_0050,
+            "today_spent": today_spent, "today_spent_nt": today_spent_nt,
         },
     )
 

@@ -28,9 +28,11 @@ window.NK = {
   const el = document.querySelector(".nav nav");
   if (!el) return;
   function updateFades() {
-    const max = el.scrollWidth - el.clientWidth;
-    el.classList.toggle("can-left", el.scrollLeft > 1);
-    el.classList.toggle("can-right", el.scrollLeft < max - 1);
+    // 2px slack: browsers leave a sub-pixel gap at the extremes, so a tight
+    // threshold would keep the right fade on even when scrolled fully right.
+    const remaining = el.scrollWidth - el.clientWidth - el.scrollLeft;
+    el.classList.toggle("can-left", el.scrollLeft > 2);
+    el.classList.toggle("can-right", remaining > 2);
   }
   el.addEventListener("scroll", updateFades, { passive: true });
   window.addEventListener("resize", updateFades);
@@ -173,9 +175,23 @@ async function setRate() {
   if (r) { alert("匯率已更新為 " + r.rate + " NT$/點"); NK.reload(); }
 }
 
+// Anti-addiction: warn (but allow override) when this play would push the
+// member's own daily spend past their limit. Only for self-records.
+function antiAddictionOk(member_id, points) {
+  if (!window.ANTI_ADDICTION) return true;
+  if (member_id !== window.MEMBER_ID) return true;
+  const after = (window.TODAY_SPENT || 0) + points;
+  if (after <= window.DAILY_LIMIT) return true;
+  return confirm(
+    `⚠️ 防沉迷提醒\n\n今日已消耗 ${window.TODAY_SPENT || 0} 點，加上這筆 ${points} 點將達 ${after} 點，` +
+    `超過你設定的每日上限 ${window.DAILY_LIMIT} 點。\n\n確定仍要繼續投幣嗎？`
+  );
+}
+
 async function doPlay() {
   const member_id = +val("pl_member"), points = +val("pl_points"), note = val("pl_note") || null;
   if (!points || points <= 0) { alert("請輸入點數"); return; }
+  if (!antiAddictionOk(member_id, points)) return;
   const chosen = await autoAttributeFlow("pay", points, member_id === window.MEMBER_ID);
   if (chosen === "cancel") return;
   if (chosen !== "manual") {
@@ -183,6 +199,19 @@ async function doPlay() {
     return;
   }
   if (await NK.post("/api/plays", { member_id, points, note, ...timeVal("pl_time") })) NK.reload();
+}
+
+async function saveAntiAddiction() {
+  const enabled = document.getElementById("anti_toggle").checked;
+  const daily_limit = +document.getElementById("anti_limit").value || 30;
+  const r = await NK.post("/api/auth/anti-addiction", { enabled, daily_limit });
+  if (r) {
+    window.ANTI_ADDICTION = r.anti_addiction;
+    window.DAILY_LIMIT = r.daily_spend_limit;
+    document.getElementById("anti_limit").value = r.daily_spend_limit;
+  } else {
+    document.getElementById("anti_toggle").checked = !enabled;
+  }
 }
 
 async function toggleAutoAttribute() {

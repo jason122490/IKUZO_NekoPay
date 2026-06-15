@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(git remote add origin https://github.com/jason122490/IKUZO_NekoPay.git)",
+      "PowerShell(git ls-remote --heads origin 2>&1)",
+      "PowerShell(git push -u origin main 2>&1)",
+      "PowerShell(Write-Output \"=== .env 是否被追蹤 \\(應為空\\) ===\"; git ls-files | Select-String -Pattern \"^\\\\.env$|\\\\.db$|^data/\" ; Write-Output \"=== 已推送的檔案數 ===\"; \\(git ls-files | Measure-Object -Line\\).Lines)",
+      "PowerShell($g = Get-Command gcloud -ErrorAction SilentlyContinue; if \\($g\\) { Write-Output \"gcloud 已安裝: $\\($g.Source\\)\"; gcloud --version | Select-Object -First 1; Write-Output \"---目前帳號/專案---\"; gcloud config list 2>$null } else { Write-Output \"gcloud 未安裝\" })",
+      "PowerShell(Write-Output \"=== NS \\(DNS 託管在哪\\) ===\"; try { Resolve-DnsName -Name ikuzo-net.com -Type NS -ErrorAction Stop | Select-Object Name,NameHost } catch { Write-Output $_.Exception.Message }; Write-Output \"`n=== 目前 A 記錄 \\(根域名\\) ===\"; try { Resolve-DnsName -Name ikuzo-net.com -Type A -ErrorAction Stop | Select-Object Name,IPAddress,Type } catch { Write-Output $_.Exception.Message }; Write-Output \"`n=== www ===\"; try { Resolve-DnsName -Name www.ikuzo-net.com -ErrorAction Stop | Select-Object Name,IPAddress,Type,NameHost } catch { Write-Output $_.Exception.Message })",
+      "PowerShell(Write-Output \"=== HTTPS 首頁 ===\"; try { $r = Invoke-WebRequest -Uri \"https://pay.ikuzo-net.com/\" -MaximumRedirection 5 -TimeoutSec 15; Write-Output \\(\"Status: \" + $r.StatusCode\\); Write-Output \\(\"Final URL: \" + $r.BaseResponse.ResponseUri\\) } catch { Write-Output \\(\"ERROR: \" + $_.Exception.Message\\) }; Write-Output \"`n=== /healthz ===\"; try { $h = Invoke-WebRequest -Uri \"https://pay.ikuzo-net.com/healthz\" -TimeoutSec 15; Write-Output \\(\"Status: \" + $h.StatusCode + \"  Body: \" + $h.Content\\) } catch { Write-Output \\(\"ERROR: \" + $_.Exception.Message\\) })"
+    ]
+  }
+}

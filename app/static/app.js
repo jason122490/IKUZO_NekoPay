@@ -21,6 +21,28 @@ window.NK = {
   reload() { location.reload(); },
 };
 
+// Nav links scroll sideways when they overflow. Desktop has no horizontal
+// wheel, so map vertical wheel -> horizontal; and toggle the edge-fade classes
+// so a fade only shows on a side that still has hidden content.
+(function () {
+  const el = document.querySelector(".nav nav");
+  if (!el) return;
+  function updateFades() {
+    const max = el.scrollWidth - el.clientWidth;
+    el.classList.toggle("can-left", el.scrollLeft > 1);
+    el.classList.toggle("can-right", el.scrollLeft < max - 1);
+  }
+  el.addEventListener("scroll", updateFades, { passive: true });
+  window.addEventListener("resize", updateFades);
+  el.addEventListener("wheel", (e) => {
+    if (e.deltaY === 0) return;                       // let real horizontal scroll pass
+    if (el.scrollWidth <= el.clientWidth) return;     // nothing hidden -> nothing to do
+    el.scrollLeft += e.deltaY;
+    e.preventDefault();                               // don't also scroll the page
+  }, { passive: false });
+  updateFades();
+})();
+
 function val(id) { return document.getElementById(id).value; }
 
 // datetime-local helpers for the optional 指定時間 fields

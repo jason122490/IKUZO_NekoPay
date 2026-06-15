@@ -6,7 +6,23 @@ a { color:var(--accent); text-decoration:none; }
 .nav { display:flex; justify-content:space-between; align-items:center; padding:14px 22px;
   background:#141a2b; border-bottom:1px solid var(--line); }
 .brand { font-weight:700; font-size:18px; color:#9cc2ff; }
-.nav nav { display:flex; gap:16px; align-items:center; }
+/* links sit in one row; when they don't fit, scroll sideways instead of wrapping.
+   min-width:0 lets this flex item shrink so overflow-x can kick in. */
+.nav nav { display:flex; gap:16px; align-items:center; flex-wrap:nowrap;
+  min-width:0; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+.nav nav::-webkit-scrollbar { display:none; }
+/* fade the links into the bg on whichever side still has hidden content
+   (the can-left/can-right classes are toggled by JS on scroll/resize) — a
+   visible "scroll this way" hint that works on the dark theme. */
+.nav nav.can-right:not(.can-left) {
+  -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 28px), transparent);
+          mask-image:linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+.nav nav.can-left:not(.can-right) {
+  -webkit-mask-image:linear-gradient(to left, #000 calc(100% - 28px), transparent);
+          mask-image:linear-gradient(to left, #000 calc(100% - 28px), transparent); }
+.nav nav.can-left.can-right {
+  -webkit-mask-image:linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+          mask-image:linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent); }
 .who { color:var(--muted); }
 .seeall { float:right; font-size:13px; font-weight:400; }
 main { max-width:1100px; margin:24px auto; padding:0 16px; }
@@ -37,7 +53,8 @@ button.link.danger { color:var(--neg); }
    button becomes a direct flex sibling of the nav links and aligns with them */
 .nav nav form.inline { display:contents; }
 .nav nav a, .nav nav .who, .nav nav button.link {
-  display:inline-flex; align-items:center; line-height:1; padding:0; margin:0; }
+  display:inline-flex; align-items:center; line-height:1; padding:0; margin:0;
+  white-space:nowrap; flex-shrink:0; }
 .inline { display:inline; }
 table { width:100%; border-collapse:collapse; font-size:14px; }
 th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
@@ -72,9 +89,10 @@ tr.inactive { opacity:.45; }
   .grid { grid-template-columns:1fr; gap:12px; }
   main { margin:16px auto; }
 
-  /* nav wraps: brand on its own line (bigger + centered), links underneath */
+  /* brand on its own line (bigger + centered); links underneath in one
+     horizontally-scrollable row (no wrap) when they don't all fit */
   .nav { padding:12px 14px; flex-wrap:wrap; }
-  .nav nav { width:100%; margin-top:14px; gap:16px; flex-wrap:wrap; row-gap:8px; }
+  .nav nav { width:100%; margin-top:14px; gap:16px; flex-wrap:nowrap; overflow-x:auto; }
   .brand { width:100%; text-align:center; font-size:24px; margin-bottom:4px; }
   /* nickname stays left; push 登出 to the far right of the row */
   .nav nav button.link { margin-left:auto; }

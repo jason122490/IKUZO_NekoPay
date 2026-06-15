@@ -113,12 +113,25 @@ function infoDialog(message) {
   });
 }
 
+// occurred_at arrives as naive UTC ("2026-06-15T02:30:00"). Parse it AS UTC and
+// render in Taipei time — the previous code sliced the raw string, showing the
+// UTC time (8h off). The rest of the app formats times server-side via localdt.
+function fmtTxnTime(s) {
+  if (!s) return "";
+  const d = new Date(s.replace(" ", "T") + "Z");
+  if (isNaN(d.getTime())) return s.replace("T", " ").slice(5, 16);
+  return d.toLocaleString("zh-TW", {
+    timeZone: "Asia/Taipei", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+}
+
 function pickCandidate(candidates) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
     const items = candidates.map(c => {
-      const t = (c.occurred_at || "").replace("T", " ").slice(5, 16);
+      const t = fmtTxnTime(c.occurred_at);
       return `<button class="cand" data-id="${c.id}">${t} · ${c.raw_name} · ${c.value} 點</button>`;
     }).join("");
     overlay.innerHTML =

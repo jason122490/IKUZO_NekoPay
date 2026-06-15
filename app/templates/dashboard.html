@@ -14,27 +14,25 @@
 
   <section class="card">
     <h2>我的餘額 / 總消費</h2>
+    {# 小彩蛋：0050 每股價（TWSE 即時行情，取不到時退回 50 估算，頁面不會壞）。
+       egg_title 滑鼠移上去顯示股價來源。 #}
+    {% set p0050 = price_0050 or 50 %}
+    {% set egg_title = '0050 每股 NT$' ~ '%.2f'|format(p0050) ~ '（' ~ ('即時' if price_0050 else '估算') ~ '），純屬娛樂 🥚' %}
     <div class="stat-row">
       <div>
         <div class="muted">餘額</div>
         <div class="big">{{ my_balance }} <span class="muted" style="font-size:14px">點</span></div>
         <div class="muted">≈ NT$ {{ my_balance_nt }}</div>
+        <div class="muted" title="{{ egg_title }}">📈 ≈ {{ (my_balance_nt / p0050)|round(1) }} 股 0050</div>
       </div>
       <div>
         <div class="muted">總消費</div>
         <div class="big neg">{{ total_spent }} <span class="muted" style="font-size:14px">點</span></div>
         <div class="muted">≈ NT$ {{ total_spent_nt }}</div>
+        <div class="muted" title="{{ egg_title }}">📈 ≈ {{ (total_spent_nt / p0050)|round(1) }} 股 0050</div>
       </div>
     </div>
     <p class="muted">{% if has_personal_rate %}依你的平均儲值匯率 {{ my_rate_display }} 元/點{% else %}尚無儲值，採用預設匯率 {{ my_rate_display }} 元/點{% endif %}</p>
-    {# 小彩蛋：把金額換算成幾股 0050。price_0050 來自 TWSE 即時行情；
-       取不到時退回 50 估算，頁面不會壞。 #}
-    {% set p0050 = price_0050 or 50 %}
-    <p class="muted" title="0050 每股 NT${{ '%.2f'|format(p0050) }}（{{ '即時' if price_0050 else '估算' }}），純屬娛樂 🥚">
-      🥚 餘額 ≈ {{ (my_balance_nt / p0050)|round(1) }} 股 0050 ·
-      總消費 ≈ {{ (total_spent_nt / p0050)|round(1) }} 股 0050
-      <span style="font-size:11px">（0050 {{ '%.2f'|format(p0050) }}{{ ' 即時' if price_0050 else ' 估' }}）</span>
-    </p>
     {% if spend_labels %}
     <div class="chart-box"><canvas id="spendChart"></canvas></div>
     {% else %}

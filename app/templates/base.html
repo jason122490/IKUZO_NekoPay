@@ -13,7 +13,7 @@
     <nav>
       {% if member %}
         <span class="who">{{ member.display_name }} · {{ ROLE_LABELS.get(member.role, member.role) }}</span>
-        <a href="/dashboard">儀表板</a>
+        <a href="/dashboard">總覽</a>
         <a href="/records">我的紀錄</a>
         <a href="/vip">VIP等級</a>
         {% if member.role == 'admin' %}<a href="/admin">歸戶/對帳</a><a href="/admin/members">成員管理</a><a href="/admin/history">同步紀錄</a>{% endif %}

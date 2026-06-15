@@ -1,19 +1,21 @@
-"""Fetch the 0050 (Yuanta Taiwan 50 ETF) spot price from TWSE, cached in-process.
+"""Fetch the 0050 (Yuanta Taiwan 50 ETF) closing price from TWSE, cached daily.
 
 Powers a dashboard easter egg that expresses NT$ amounts as "shares of 0050".
-TWSE's realtime quote endpoint is hit at most once per CACHE_TTL; on any error
-we serve the last known price (or None, so the caller falls back to a hardcoded
-estimate) — the page never breaks on a flaky/blocked upstream.
+The quote is refreshed at most once per Taipei calendar day (a settled closing
+price is all the easter egg needs); on any error we serve the last known price
+(or None, so the caller falls back to a hardcoded estimate) — the page never
+breaks on a flaky/blocked upstream.
 """
 from __future__ import annotations
 
-import time
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+from zoneinfo import ZoneInfo
 
 import httpx
 
 _TWSE_URL = "https://mis.twse.com.tw/stock/api/getStockInfo.jsp"
-_CACHE_TTL = 900.0  # seconds (15 min); an easter egg doesn't need finer
+_MARKET_TZ = ZoneInfo("Asia/Taipei")  # TWSE trades/closes on Taipei time
 _HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -22,8 +24,8 @@ _HEADERS = {
     "Referer": "https://mis.twse.com.tw/stock/index.jsp",
 }
 
-# module-level cache (single-worker app): {"price": Decimal|None, "at": monotonic}
-_cache: dict[str, object] = {"price": None, "at": 0.0}
+# module-level cache (single-worker app): {"price": Decimal|None, "day": date}
+_cache: dict[str, object] = {"price": None, "day": None}
 
 
 def _parse_price(data: dict) -> Decimal | None:
@@ -31,9 +33,9 @@ def _parse_price(data: dict) -> Decimal | None:
     if not arr:
         return None
     row = arr[0]
-    # z = last trade; "-" when no trade yet / market closed -> fall back to
-    # y (previous close), then o (open).
-    for key in ("z", "y", "o"):
+    # Prefer y (previous close = a settled closing price that changes once per
+    # trading day); fall back to z (last trade) then o (open) if absent.
+    for key in ("y", "z", "o"):
         raw = row.get(key)
         if raw and raw not in ("-", "0.0000"):
             try:
@@ -44,10 +46,10 @@ def _parse_price(data: dict) -> Decimal | None:
 
 
 async def get_0050_price(*, proxy: str | None = None) -> Decimal | None:
-    """Current 0050 price in NT$, or None if unavailable. Cached for CACHE_TTL."""
-    now = time.monotonic()
+    """0050 closing price in NT$, or None if unavailable. Refreshed once a day."""
+    today: date = datetime.now(_MARKET_TZ).date()
     cached = _cache.get("price")
-    if cached is not None and now - float(_cache["at"]) < _CACHE_TTL:
+    if cached is not None and _cache.get("day") == today:
         return cached  # type: ignore[return-value]
     try:
         async with httpx.AsyncClient(
@@ -65,6 +67,6 @@ async def get_0050_price(*, proxy: str | None = None) -> Decimal | None:
         price = None
     if price is not None:
         _cache["price"] = price
-        _cache["at"] = now
+        _cache["day"] = today
         return price
     return _cache.get("price")  # type: ignore[return-value]  # stale-but-good, or None

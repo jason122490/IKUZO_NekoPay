@@ -20,7 +20,7 @@
     {# 小彩蛋：0050 每股價（TWSE 即時行情，取不到時退回 50 估算，頁面不會壞）。
        egg_title 滑鼠移上去顯示股價來源。 #}
     {% set p0050 = price_0050 or 50 %}
-    {% set egg_title = '0050 每股 NT$' ~ '%.2f'|format(p0050) ~ '（' ~ ('即時' if price_0050 else '估算') ~ '），純屬娛樂 🥚' %}
+    {% set egg_title = '0050 每股 NT$' ~ '%.2f'|format(p0050) ~ '（' ~ ('收盤' if price_0050 else '估算') ~ '，每日更新），純屬娛樂 🥚' %}
     <div class="stat-row">
       <div>
         <div class="muted">餘額</div>

@@ -27,6 +27,14 @@
       </div>
     </div>
     <p class="muted">{% if has_personal_rate %}依你的平均儲值匯率 {{ my_rate_display }} 元/點{% else %}尚無儲值，採用預設匯率 {{ my_rate_display }} 元/點{% endif %}</p>
+    {# 小彩蛋：把金額換算成幾股 0050。price_0050 來自 TWSE 即時行情；
+       取不到時退回 50 估算，頁面不會壞。 #}
+    {% set p0050 = price_0050 or 50 %}
+    <p class="muted" title="0050 每股 NT${{ '%.2f'|format(p0050) }}（{{ '即時' if price_0050 else '估算' }}），純屬娛樂 🥚">
+      🥚 餘額 ≈ {{ (my_balance_nt / p0050)|round(1) }} 股 0050 ·
+      總消費 ≈ {{ (total_spent_nt / p0050)|round(1) }} 股 0050
+      <span style="font-size:11px">（0050 {{ '%.2f'|format(p0050) }}{{ ' 即時' if price_0050 else ' 估' }}）</span>
+    </p>
     {% if spend_labels %}
     <div class="chart-box"><canvas id="spendChart"></canvas></div>
     {% else %}

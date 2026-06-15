@@ -21,6 +21,7 @@ from app.models.ledger import LedgerEntry
 from app.models.real import AccountSnapshot, RealTransaction, SyncRun
 from app.models.user import Member
 from app.services import auth_service, config_service, ledger_service
+from app.services.stock_service import get_0050_price
 from app.vip import (
     BONUS_MIN_TOPUP,
     VIP_TIERS,
@@ -205,6 +206,10 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
     recent_rows = _entry_rows(entries)
     recon = await reconcile_report(session) if is_admin else None
 
+    # easter egg: NT$ amounts as "shares of 0050" (live TWSE quote, via the
+    # residential proxy if configured; None -> template uses a fixed estimate)
+    price_0050 = await get_0050_price(proxy=settings.nekopay_proxy or None)
+
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -217,7 +222,7 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
             "vip_name": vip_name,
             "my_balance_nt": my_balance_nt, "total_spent_nt": total_spent_nt,
             "my_rate_display": my_rate_display, "has_personal_rate": has_personal_rate,
-            "bonus_min_topup": BONUS_MIN_TOPUP,
+            "bonus_min_topup": BONUS_MIN_TOPUP, "price_0050": price_0050,
         },
     )
 

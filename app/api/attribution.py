@@ -36,7 +36,8 @@ async def match(
     synced = False
     sync_manager = getattr(request.app.state, "sync_manager", None)
     if sync_manager is not None:
-        run = await sync_manager.run_if_stale(session)
+        # always pull fresh pay history so the just-made real txn shows up
+        run = await sync_manager.sync_now_safe(include_snapshot=False)
         synced = run is not None and run.status == "ok"
 
     # signed value to match: topup is +points, pay is -points

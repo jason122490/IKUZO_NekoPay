@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     # Sync
     run_scheduler: bool = True
-    sync_interval_seconds: int = 300
+    sync_interval_seconds: int = 3600
     app_timezone: str = "Asia/Taipei"
 
     # Economics

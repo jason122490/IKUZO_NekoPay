@@ -49,15 +49,21 @@ async def run_sync_cycle(
     *,
     transport_retries: int = 3,
     backoff_base: float = 2.0,
+    include_snapshot: bool = True,
 ) -> SyncRun:
     run = SyncRun(started_at=utcnow(), status=SyncStatus.OK.value)
 
     # --- network first (no DB writes yet) ---
+    # On-demand syncs (auto-attribution) pass include_snapshot=False to skip the
+    # user_info fetch + balance snapshot — matching only needs pay history, so
+    # this halves the request count and the user-facing latency.
     try:
-        info = await _fetch_with_retry(
-            lambda t: client.get_user_info(t), token_manager,
-            transport_retries, backoff_base,
-        )
+        info = None
+        if include_snapshot:
+            info = await _fetch_with_retry(
+                lambda t: client.get_user_info(t), token_manager,
+                transport_retries, backoff_base,
+            )
         data = await _fetch_with_retry(
             lambda t: client.get_pay_history(t), token_manager,
             transport_retries, backoff_base,
@@ -79,21 +85,22 @@ async def run_sync_cycle(
 
     # --- DB writes (all together) ---
     try:
-        session.add(
-            AccountSnapshot(
-                balance=int(info.get("balance", 0) or 0),
-                card_id=info.get("cardId"),
-                status=str(info.get("status")) if info.get("status") is not None else None,
-                ticket_point=info.get("ticketPoint"),
-                vip_name=info.get("vipName"),
-                vip_next_value=info.get("vipNextValue"),
-                vip_cumulative=vip_cumulative(
-                    info.get("event"), get_settings().vip_event_key
-                ),
-                is_premium=info.get("isPremium"),
-                raw_json=json.dumps(info, ensure_ascii=False),
+        if include_snapshot and info is not None:
+            session.add(
+                AccountSnapshot(
+                    balance=int(info.get("balance", 0) or 0),
+                    card_id=info.get("cardId"),
+                    status=str(info.get("status")) if info.get("status") is not None else None,
+                    ticket_point=info.get("ticketPoint"),
+                    vip_name=info.get("vipName"),
+                    vip_next_value=info.get("vipNextValue"),
+                    vip_cumulative=vip_cumulative(
+                        info.get("event"), get_settings().vip_event_key
+                    ),
+                    is_premium=info.get("isPremium"),
+                    raw_json=json.dumps(info, ensure_ascii=False),
+                )
             )
-        )
 
         records = parse_history(data, local_now(tz_name), tz_name)
         # optional cutoff: ingest only real txns on/after the configured date

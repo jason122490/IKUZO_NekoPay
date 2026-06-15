@@ -6,20 +6,18 @@ and token. Assumes a single app instance (RUN_SCHEDULER gates extra replicas).
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.db import SessionLocal
-from app.models.real import AccountSnapshot, SyncRun
+from app.models.real import SyncRun
 from app.services.nekopay_client import NekoPayClient
 from app.services.sync_service import run_sync_cycle
 from app.services.token_manager import TokenManager
-from app.util.time import utcnow
 
 log = logging.getLogger("nekopay.sync")
 
@@ -36,11 +34,14 @@ class SyncManager:
             self.client, settings.nekopay_email, settings.nekopay_password
         )
         self._scheduler = AsyncIOScheduler()
+        # serializes on-demand syncs so rapid clicks don't run overlapping cycles
+        self._ondemand_lock = asyncio.Lock()
 
-    async def _run(self) -> SyncRun:
+    async def _run(self, include_snapshot: bool = True) -> SyncRun:
         async with SessionLocal() as session:
             run = await run_sync_cycle(
-                session, self.client, self.token_manager, self.settings.app_timezone
+                session, self.client, self.token_manager, self.settings.app_timezone,
+                include_snapshot=include_snapshot,
             )
             log.info(
                 "sync cycle: status=%s seen=%s inserted=%s",
@@ -48,34 +49,23 @@ class SyncManager:
             )
             return run
 
-    async def run_once(self) -> SyncRun:
+    async def run_once(self, include_snapshot: bool = True) -> SyncRun:
         """Manual trigger (admin endpoint)."""
-        return await self._run()
+        return await self._run(include_snapshot=include_snapshot)
 
-    async def run_if_stale(
-        self, session: AsyncSession, max_age_sec: int = 20
-    ) -> SyncRun | None:
-        """Sync the real account on demand, unless a snapshot is recent enough.
-
-        Used before auto-attribution matching so the member's just-made real
-        transaction shows up. No-op (returns None) if creds are unset, data is
-        fresh, or the sync fails (best-effort)."""
+    async def sync_now_safe(self, *, include_snapshot: bool = True) -> SyncRun | None:
+        """Force a sync now, best-effort. Used before auto-attribution matching so
+        the member's just-made real transaction always shows up. Serialized by a
+        lock so rapid clicks don't overlap. No-op (returns None) if creds are
+        unset or the sync fails — never raises into the caller's request."""
         if not (self.settings.nekopay_email and self.settings.nekopay_password):
             return None
-        snap = (
-            await session.execute(
-                select(AccountSnapshot)
-                .order_by(AccountSnapshot.captured_at.desc())
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-        if snap is not None and (utcnow() - snap.captured_at).total_seconds() < max_age_sec:
-            return None
-        try:
-            return await self.run_once()
-        except Exception:  # never fail the caller's request because sync hiccuped
-            log.warning("on-demand sync failed", exc_info=True)
-            return None
+        async with self._ondemand_lock:
+            try:
+                return await self.run_once(include_snapshot=include_snapshot)
+            except Exception:  # never fail the caller's request because sync hiccuped
+                log.warning("on-demand sync failed", exc_info=True)
+                return None
 
     def start(self) -> None:
         if not self.settings.run_scheduler:

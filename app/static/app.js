@@ -78,6 +78,16 @@ function inputModal(title, placeholder, type) {
   });
 }
 
+// Blocking overlay shown while waiting on the network (the match call forces a
+// fresh 白喵 sync, ~1s); returns a dismiss function. Avoids the "frozen UI" feel.
+function showLoading(message) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal"><p style="margin:0">${message}</p></div>`;
+  document.body.appendChild(overlay);
+  return () => { if (overlay.parentNode) document.body.removeChild(overlay); };
+}
+
 // The auto-attribution dialog ALWAYS appears on 投幣/儲值.
 // Returns a real_txn id (number) to attribute, "manual" to record normally,
 // or "cancel" to abort the action entirely.
@@ -88,7 +98,13 @@ async function autoAttributeFlow(kind, points, isSelf) {
   if (!window.AUTO_ATTRIBUTE) {
     return await infoDialog("未開啟自動歸戶。要將這筆記為一般紀錄嗎？");
   }
-  const res = await NK.post("/api/attribution/match", { kind, points });
+  const stop = showLoading("正在查詢白喵交易…");
+  let res;
+  try {
+    res = await NK.post("/api/attribution/match", { kind, points });
+  } finally {
+    stop();
+  }
   if (!res) return "cancel";  // request failed (already alerted)
   if (!res.candidates.length) {
     return await infoDialog("未匹配：找不到金額相同且尚未歸戶的真實紀錄。要記為一般紀錄嗎？");

@@ -29,7 +29,7 @@ class Position:
     contributed_nt: Decimal
     consumed_points: int
     balance_points: int
-    rate: Decimal
+    rate: Decimal  # effective NT$/point for this member (money paid / points got)
 
     @property
     def consumed_value_nt(self) -> Decimal:
@@ -96,16 +96,38 @@ async def compute_positions(
         ).all()
     )
 
+    # points each member received from their own paid top-ups (money_nt set);
+    # incl. VIP bonus, since the bonus is part of the same top-up row's points.
+    topup_points_rows = dict(
+        (
+            await session.execute(
+                select(
+                    LedgerEntry.member_id,
+                    func.coalesce(func.sum(LedgerEntry.points_delta), 0),
+                )
+                .where(LedgerEntry.money_nt.is_not(None))
+                .group_by(LedgerEntry.member_id)
+            )
+        ).all()
+    )
+
     positions = []
     for m in members:
+        contributed = Decimal(str(money_rows.get(m.id, 0)))
+        received = int(topup_points_rows.get(m.id, 0))
+        # value this member's points at what they actually paid per point
+        # (money / points received). Free VIP bonus points thus lower the
+        # per-point cost instead of pushing the fairness net negative. Falls
+        # back to the global rate when there are no paid top-ups.
+        eff_rate = (contributed / Decimal(received)) if received > 0 else rate
         positions.append(
             Position(
                 member_id=m.id,
                 display_name=m.display_name,
-                contributed_nt=Decimal(str(money_rows.get(m.id, 0))),
+                contributed_nt=contributed,
                 consumed_points=-int(consumed_rows.get(m.id, 0)),  # PLAY deltas are neg
                 balance_points=int(balance_rows.get(m.id, 0)),
-                rate=rate,
+                rate=eff_rate,
             )
         )
     return positions
